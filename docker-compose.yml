@@ -1,0 +1,59 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: campusconnect-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-campusconnect}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-campusconnect}
+      POSTGRES_DB: ${POSTGRES_DB:-campusconnect}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-campusconnect} -d ${POSTGRES_DB:-campusconnect}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # Lightweight DB browser at http://localhost:8080 (optional)
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: campusconnect-pgadmin
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_EMAIL:-admin@campusconnect.local}
+      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_PASSWORD:-admin}
+      PGADMIN_CONFIG_SERVER_MODE: "False"
+    ports:
+      - "8080:80"
+    volumes:
+      - pgadmin:/var/lib/pgadmin
+    profiles:
+      - tools
+
+  # S3-compatible object storage for the `s3` storage driver (optional)
+  minio:
+    image: minio/minio:latest
+    container_name: campusconnect-minio
+    restart: unless-stopped
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${S3_ACCESS_KEY_ID:-campusconnect}
+      MINIO_ROOT_PASSWORD: ${S3_SECRET_ACCESS_KEY:-campusconnect123}
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - minio:/data
+    profiles:
+      - tools
+
+volumes:
+  pgdata:
+  pgadmin:
+  minio:

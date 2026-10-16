@@ -1,0 +1,251 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/**
+ * Design tokens.
+ *
+ * Declared once as HSL channel triples so Tailwind can compose them with opacity
+ * (e.g. `bg-primary/10`). Light mode is the default, per the brief; dark mode is a
+ * class on <html>, applied by next-themes.
+ */
+
+@layer base {
+  :root {
+    --background: 0 0% 100%;
+    --foreground: 222 47% 11%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 222 47% 11%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 222 47% 11%;
+
+    /* CampusConnect primary blue (#2563EB) */
+    --primary: 221 83% 53%;
+    --primary-foreground: 210 40% 98%;
+
+    --secondary: 210 40% 96%;
+    --secondary-foreground: 222 47% 11%;
+
+    --muted: 210 40% 96%;
+    --muted-foreground: 215 16% 47%;
+
+    --accent: 210 40% 96%;
+    --accent-foreground: 222 47% 11%;
+
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 210 40% 98%;
+
+    --success: 142 71% 45%;
+    --warning: 38 92% 50%;
+    --info: 199 89% 48%;
+
+    --border: 214 32% 91%;
+    --input: 214 32% 91%;
+    --ring: 221 83% 53%;
+
+    --radius: 0.75rem;
+  }
+
+  .dark {
+    --background: 222 47% 7%;
+    --foreground: 210 40% 96%;
+
+    --card: 222 44% 10%;
+    --card-foreground: 210 40% 96%;
+
+    --popover: 222 44% 10%;
+    --popover-foreground: 210 40% 96%;
+
+    /* Lifted slightly in dark mode so the blue still reads as the primary action. */
+    --primary: 217 91% 60%;
+    --primary-foreground: 222 47% 11%;
+
+    --secondary: 217 33% 17%;
+    --secondary-foreground: 210 40% 96%;
+
+    --muted: 217 33% 15%;
+    --muted-foreground: 215 20% 65%;
+
+    --accent: 217 33% 17%;
+    --accent-foreground: 210 40% 96%;
+
+    --destructive: 0 63% 45%;
+    --destructive-foreground: 210 40% 98%;
+
+    --success: 142 65% 42%;
+    --warning: 38 85% 52%;
+    --info: 199 85% 52%;
+
+    --border: 217 33% 19%;
+    --input: 217 33% 19%;
+    --ring: 217 91% 60%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  html {
+    scroll-behavior: smooth;
+    /* Prevents a horizontal scrollbar when the hero's floating cards bleed
+       slightly past the viewport on small screens. */
+    overflow-x: hidden;
+  }
+
+  body {
+    @apply bg-background text-foreground antialiased;
+    font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11';
+  }
+
+  /* A visible focus ring on every interactive element, for keyboard users.
+     Uses :focus-visible so a mouse click does not leave a ring behind. */
+  :focus-visible {
+    @apply outline-none ring-2 ring-ring ring-offset-2 ring-offset-background;
+  }
+
+  /* Respect the OS setting. Vestibular triggers are real and this costs nothing. */
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+}
+
+@layer components {
+  /* The card treatment used across the product: rounded, soft shadow, no border
+     unless the surface behind it is also white. */
+  .cc-card {
+    @apply rounded-xl border border-border bg-card text-card-foreground shadow-soft;
+  }
+
+  .cc-card-interactive {
+    @apply cc-card transition-all duration-200 hover:-translate-y-0.5 hover:shadow-card;
+  }
+
+  /* Section rhythm for the marketing pages. */
+  .cc-section {
+    @apply py-16 sm:py-20 lg:py-24;
+  }
+
+  /* Constrains prose to a comfortable measure. */
+  .cc-prose {
+    @apply max-w-3xl text-[15px] leading-7 text-muted-foreground;
+  }
+
+  /* The gradient hairline used between marketing sections. */
+  .cc-divider {
+    @apply h-px w-full bg-gradient-to-r from-transparent via-border to-transparent;
+  }
+}
+
+@layer utilities {
+  /* The grid backdrop behind hero sections, faded at the edges. */
+  .bg-grid-fade {
+    background-image:
+      linear-gradient(to right, hsl(var(--border) / 0.5) 1px, transparent 1px),
+      linear-gradient(to bottom, hsl(var(--border) / 0.5) 1px, transparent 1px);
+    background-size: 40px 40px;
+    -webkit-mask-image: radial-gradient(ellipse 70% 60% at 50% 0%, #000 40%, transparent 100%);
+    mask-image: radial-gradient(ellipse 70% 60% at 50% 0%, #000 40%, transparent 100%);
+  }
+
+  /* Truncates to a fixed number of lines without a JS measurement. */
+  .line-clamp-2 {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+
+  .line-clamp-3 {
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+
+  /* Hides scrollbars on the horizontal journey stepper while keeping it
+     scrollable by touch and by keyboard. */
+  .no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+
+  /* A shimmer sweep for skeleton loaders. */
+  .shimmer {
+    position: relative;
+    overflow: hidden;
+  }
+
+  .shimmer::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    transform: translateX(-100%);
+    background-image: linear-gradient(
+      90deg,
+      transparent,
+      hsl(var(--foreground) / 0.04),
+      transparent
+    );
+    animation: shimmer 1.6s infinite;
+  }
+}
+
+/* Recharts overrides: the library injects its own focus outlines, which clash
+   with the focus-visible ring above. */
+.recharts-wrapper:focus,
+.recharts-surface:focus {
+  outline: none;
+}
+
+.recharts-cartesian-axis-tick text {
+  font-size: 12px;
+  fill: hsl(var(--muted-foreground));
+}
+
+.recharts-default-tooltip {
+  border-radius: 0.5rem !important;
+  border-color: hsl(var(--border)) !important;
+  background-color: hsl(var(--popover)) !important;
+  color: hsl(var(--popover-foreground)) !important;
+}
+
+/* The html5-qrcode library injects its own video element; give it our radius. */
+#cc-qr-reader video {
+  border-radius: var(--radius);
+  width: 100% !important;
+  height: auto !important;
+}
+
+/* Print styles for the passport and certificate pages — an employer printing a
+   passport should not get the nav, the footer or the buttons. */
+@media print {
+  .no-print {
+    display: none !important;
+  }
+
+  body {
+    background: white !important;
+    color: black !important;
+  }
+
+  .cc-card {
+    border: 1px solid #e2e8f0 !important;
+    box-shadow: none !important;
+    break-inside: avoid;
+  }
+}

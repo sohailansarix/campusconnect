@@ -1,0 +1,33 @@
+{
+  "name": "campusconnect",
+  "version": "1.0.0",
+  "private": true,
+  "description": "CampusConnect: An Integrated College-to-Career Platform — From Campus Experience to Career Readiness",
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
+  "scripts": {
+    "dev": "npm run dev --workspace=@campusconnect/api & npm run dev --workspace=@campusconnect/web",
+    "dev:api": "npm run dev --workspace=@campusconnect/api",
+    "dev:web": "npm run dev --workspace=@campusconnect/web",
+    "build": "npm run build --workspace=@campusconnect/shared && npm run build --workspace=@campusconnect/api && npm run build --workspace=@campusconnect/web",
+    "db:up": "docker compose up -d postgres",
+    "db:down": "docker compose down",
+    "db:migrate": "npm run db:migrate --workspace=@campusconnect/api",
+    "db:push": "npm run db:push --workspace=@campusconnect/api",
+    "db:seed": "npm run db:seed --workspace=@campusconnect/api",
+    "db:studio": "npm run db:studio --workspace=@campusconnect/api",
+    "db:reset": "npm run db:reset --workspace=@campusconnect/api",
+    "setup": "npm install && npm run build --workspace=@campusconnect/shared && npm run db:up && sleep 4 && npm run db:migrate && npm run db:seed",
+    "test": "npm run test --workspace=@campusconnect/api",
+    "lint": "npm run lint --workspace=@campusconnect/web",
+    "typecheck": "npm run typecheck --workspace=@campusconnect/shared && npm run typecheck --workspace=@campusconnect/api && npm run typecheck --workspace=@campusconnect/web"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.6.3"
+  }
+}

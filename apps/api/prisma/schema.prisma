@@ -1,0 +1,2132 @@
+// =============================================================================
+// CampusConnect — Prisma schema
+// =============================================================================
+//
+// Conventions used throughout:
+//
+//  * Every model carries `createdAt` / `updatedAt`. Models whose rows are shown
+//    to users carry `deletedAt` for soft delete; hard delete is reserved for
+//    true join rows and for records removed by a data-subject request.
+//
+//  * Multi-tenancy is by `collegeId`. Every college-scoped model indexes it, and
+//    every service method that reads such a model filters on the caller's
+//    collegeId. A row with `collegeId = null` is platform-global (e.g. a
+//    reference skill) and readable by all tenants, never writable by them.
+//
+//  * Enums are declared as Prisma enums, mirroring the string unions in
+//    `@campusconnect/shared`. The shared package is the display/copy source of
+//    truth; this schema is the storage source of truth. A unit test asserts the
+//    two lists match so they cannot drift silently.
+//
+//  * RBAC is enforced in code (`packages/shared/src/rbac.ts`), not in the
+//    database. The `Role` table below exists as *reference data* — it backs the
+//    admin UI's permission matrix and keeps role metadata queryable — but
+//    `User.role` is the value the auth middleware reads. There is deliberately
+//    no `permissions` JSON column that could be edited at runtime and diverge
+//    from what the middleware enforces.
+//
+// Phase 1 tables are implemented end-to-end. Phase 2/3 tables (skills, courses,
+// projects, internships, jobs, applications, interviews, payments) are defined
+// now so the schema is stable and a single migration covers the roadmap; their
+// routes and services arrive in later phases as `TODO(Phase N)` markers note.
+// =============================================================================
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// =============================================================================
+// ENUMS
+// =============================================================================
+
+enum RoleKey {
+  STUDENT
+  CLUB_LEAD
+  FACULTY_COORDINATOR
+  COLLEGE_ADMIN
+  TRAINER
+  EMPLOYER
+  SUPER_ADMIN
+}
+
+enum UserStatus {
+  PENDING_INVITE
+  ACTIVE
+  SUSPENDED
+  DEACTIVATED
+}
+
+enum EventCategory {
+  WORKSHOP
+  SEMINAR
+  HACKATHON
+  COMPETITION
+  BOOTCAMP
+  WEBINAR
+  CULTURAL
+  SPORTS
+  FEST
+  CLUB_ACTIVITY
+  PLACEMENT_DRIVE
+  OTHER
+}
+
+enum EventMode {
+  ONLINE
+  OFFLINE
+  HYBRID
+}
+
+enum EventStatus {
+  DRAFT
+  PENDING_FACULTY
+  PENDING_ADMIN
+  PUBLISHED
+  REJECTED
+  ONGOING
+  COMPLETED
+  CANCELLED
+}
+
+enum ApprovalDecision {
+  APPROVE
+  REJECT
+  REQUEST_CHANGES
+}
+
+enum ApprovalStage {
+  FACULTY
+  ADMIN
+}
+
+enum RegistrationStatus {
+  PENDING
+  CONFIRMED
+  WAITLISTED
+  CANCELLED
+  ATTENDED
+  NO_SHOW
+}
+
+enum AttendanceMethod {
+  QR_SCAN
+  MANUAL
+  SELF_CHECKIN
+}
+
+enum CertificateType {
+  EVENT_PARTICIPATION
+  EVENT_WINNER
+  EVENT_VOLUNTEER
+  COURSE_COMPLETION
+  SKILL_ASSESSMENT
+  INTERNSHIP_COMPLETION
+}
+
+enum CertificateStatus {
+  PENDING
+  ISSUED
+  REVOKED
+  EXPIRED
+}
+
+enum ClubCategory {
+  TECHNICAL
+  CULTURAL
+  SPORTS
+  SOCIAL
+  ENTREPRENEURSHIP
+  LITERARY
+  PROFESSIONAL
+  OTHER
+}
+
+enum ClubMembershipRole {
+  MEMBER
+  CORE_TEAM
+  SECRETARY
+  TREASURER
+  VICE_PRESIDENT
+  PRESIDENT
+}
+
+enum ClubMembershipStatus {
+  PENDING
+  ACTIVE
+  REJECTED
+  LEFT
+}
+
+enum NotificationType {
+  EVENT_REGISTRATION
+  EVENT_REMINDER
+  EVENT_UPDATED
+  CERTIFICATE_ISSUED
+  DEADLINE_ALERT
+  APPLICATION_STATUS
+  INTERVIEW_SCHEDULE
+  JOB_MATCH
+  CLUB_MEMBERSHIP
+  SYSTEM
+}
+
+enum NotificationChannel {
+  IN_APP
+  EMAIL
+  PUSH
+  WHATSAPP
+  SMS
+}
+
+enum NotificationStatus {
+  QUEUED
+  SENT
+  FAILED
+  READ
+}
+
+enum DigestFrequency {
+  INSTANT
+  DAILY
+  WEEKLY
+  NEVER
+}
+
+enum FilePurpose {
+  PROFILE_PHOTO
+  EVENT_BANNER
+  CLUB_LOGO
+  CERTIFICATE_BACKGROUND
+  CERTIFICATE_PDF
+  RESUME
+  PROJECT_FILE
+  PROJECT_THUMBNAIL
+  COMPANY_LOGO
+}
+
+enum StorageDriver {
+  LOCAL
+  S3
+}
+
+enum ProficiencyLevel {
+  BEGINNER
+  INTERMEDIATE
+  ADVANCED
+  EXPERT
+}
+
+enum SkillSource {
+  SELF
+  ASSESSMENT
+  COURSE
+  MENTOR
+  INTERNSHIP
+}
+
+enum CourseLevel {
+  BEGINNER
+  INTERMEDIATE
+  ADVANCED
+}
+
+enum EnrollmentStatus {
+  ENROLLED
+  IN_PROGRESS
+  COMPLETED
+  DROPPED
+}
+
+enum ProjectStatus {
+  DRAFT
+  SUBMITTED
+  UNDER_REVIEW
+  APPROVED
+  NEEDS_REVISION
+  REJECTED
+}
+
+enum OpportunityType {
+  JOB
+  INTERNSHIP
+}
+
+enum WorkMode {
+  REMOTE
+  ONSITE
+  HYBRID
+}
+
+enum JobStatus {
+  DRAFT
+  PENDING_REVIEW
+  PUBLISHED
+  CLOSED
+  ARCHIVED
+}
+
+enum ApplicationStatus {
+  APPLIED
+  UNDER_REVIEW
+  SHORTLISTED
+  INTERVIEW_SCHEDULED
+  INTERVIEWED
+  OFFER
+  HIRED
+  REJECTED
+  WITHDRAWN
+}
+
+enum InterviewMode {
+  ONLINE
+  IN_PERSON
+  PHONE
+}
+
+enum MockInterviewStatus {
+  REQUESTED
+  SCHEDULED
+  COMPLETED
+  CANCELLED
+  NO_SHOW
+}
+
+enum PassportVisibility {
+  PUBLIC
+  EMPLOYERS_ONLY
+  PRIVATE
+}
+
+enum SubscriptionPlan {
+  FREE
+  PREMIUM_STUDENT
+  COLLEGE_STARTER
+  COLLEGE_PRO
+  ENTERPRISE
+}
+
+enum SubscriptionStatus {
+  TRIALING
+  ACTIVE
+  PAST_DUE
+  CANCELLED
+  EXPIRED
+}
+
+enum PaymentStatus {
+  CREATED
+  PENDING
+  PAID
+  FAILED
+  REFUNDED
+}
+
+/// Why a VerificationToken exists.
+///  * PASSWORD_RESET   — student-initiated password change
+///  * EMAIL_VERIFY     — confirm the address belongs to the account holder
+///  * INVITE           — admin-provisioned account (faculty, employer, trainer)
+enum VerificationTokenType {
+  PASSWORD_RESET
+  EMAIL_VERIFY
+  INVITE
+}
+
+enum AuditAction {
+  CREATE
+  UPDATE
+  DELETE
+  LOGIN
+  LOGOUT
+  EXPORT
+  APPROVE
+  REJECT
+  ISSUE
+  REVOKE
+  SCAN
+  DOWNLOAD
+}
+
+// =============================================================================
+// TENANCY & IDENTITY
+// =============================================================================
+
+model College {
+  id        String  @id @default(cuid())
+  name      String
+  slug      String  @unique
+  shortName String?
+  city      String?
+  state     String?
+  country   String  @default("India")
+  website   String?
+  logoUrl   String?
+  bannerUrl String?
+
+  /// Placement office contact shown on the public college page.
+  placementEmail String?
+  placementPhone String?
+
+  /// Institution type drives which dashboard widgets the admin sees.
+  isActive  Boolean @default(true)
+  /// Pilot flag — colleges outside the pilot see a "coming soon" state.
+  isPilot   Boolean @default(false)
+
+  /// Denormalised counters kept current by the analytics module. Cheap to read
+  /// on the admin dashboard; recomputed nightly and after large imports.
+  studentCount Int @default(0)
+  eventsHosted Int @default(0)
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  users            User[]
+  departments      Department[]
+  clubs            Club[]
+  events           Event[]
+  certificates     Certificate[]
+  certificateTemplates CertificateTemplate[]
+  studentProfiles  StudentProfile[]
+  subscriptions    Subscription[]
+  auditLogs        AuditLog[]
+  skills           Skill[]
+
+  @@index([isActive, deletedAt])
+  @@index([slug])
+  @@map("colleges")
+}
+
+model Department {
+  id        String @id @default(cuid())
+  collegeId String
+  college   College @relation(fields: [collegeId], references: [id], onDelete: Cascade)
+
+  name String
+  code String
+  /// e.g. "BBA", "B.Tech CSE" — shown next to the department on profile pages.
+  degree String?
+  /// Typical programme length, used to derive the graduating cohort.
+  durationYears Int @default(4)
+  hodName  String?
+  isActive Boolean @default(true)
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  users          User[]
+  studentProfiles StudentProfile[]
+  events         Event[]
+  skills         Skill[]
+  clubMemberships ClubMembership[]
+
+  @@unique([collegeId, code])
+  @@index([collegeId, isActive])
+  @@map("departments")
+}
+
+/// Reference data mirroring the RBAC matrix in `@campusconnect/shared`.
+/// Not consulted during authorisation — see the file header.
+model Role {
+  id          String  @id @default(cuid())
+  key         RoleKey @unique
+  name        String
+  description String
+  /// Coarse grouping used to build the admin permission matrix UI.
+  layer       String  @default("core")
+  /// Roles a self-service signup may choose. Only STUDENT today.
+  selfSignup  Boolean @default(false)
+  /// Protected roles cannot be deleted or renamed from the admin UI.
+  isSystem    Boolean @default(true)
+  sortOrder   Int     @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  users User[]
+
+  @@map("roles")
+}
+
+model User {
+  id        String @id @default(cuid())
+  email     String @unique
+  /// Null until the user sets one; login is by email.
+  username  String? @unique
+  passwordHash String
+
+  fullName  String
+  phone     String?
+  avatarUrl String?
+  bio       String? @db.Text
+
+  role      RoleKey
+  /// FK to the informational Role row; `role` above is what the middleware reads.
+  roleId    String?
+  roleRef   Role?   @relation(fields: [roleId], references: [id], onDelete: SetNull)
+
+  /// Null for EMPLOYER and SUPER_ADMIN — they are not college tenants.
+  collegeId String?
+  college   College? @relation(fields: [collegeId], references: [id], onDelete: SetNull)
+
+  departmentId String?
+  department   Department? @relation(fields: [departmentId], references: [id], onDelete: SetNull)
+
+  status UserStatus @default(ACTIVE)
+  emailVerifiedAt DateTime?
+  lastLoginAt     DateTime?
+
+  /// Consent record. `acceptedTermsAt` is set at signup and stamped on the
+  /// audit log; `consentToEmployerSearch` gates employer visibility and can be
+  /// withdrawn by the student at any time (DPDP/GDPR-style consent).
+  acceptedTermsAt DateTime?
+  consentToEmployerSearch Boolean @default(false)
+
+  /// Bumped on password change or forced logout to invalidate every issued
+  /// access token without a database round-trip per request beyond the compare.
+  tokenVersion Int @default(0)
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  studentProfile      StudentProfile?
+  employerProfile     EmployerProfile?
+  sessions            Session[]
+  verificationTokens  VerificationToken[]
+  notifications       Notification[]
+  notificationPreferences NotificationPreference[]
+  clubMemberships     ClubMembership[]
+  ledClubs            Club[]            @relation("ClubPresident")
+  organizedEvents     Event[]           @relation("EventOrganizer")
+  eventApprovals      EventApproval[]
+  registrations       EventRegistration[]
+  attendances         Attendance[]      @relation("AttendanceStudent")
+  scannedAttendances  Attendance[]      @relation("AttendanceScanner")
+  certificates        Certificate[]     @relation("CertificateRecipient")
+  issuedCertificates  Certificate[]     @relation("CertificateIssuer")
+  feedback            Feedback[]        @relation("FeedbackAuthor")
+  uploads             FileAsset[]
+  auditLogs           AuditLog[]
+  assessments         AssessmentAttempt[]
+  coursesAuthored     Course[]          @relation("CourseAuthor")
+  enrollments         Enrollment[]
+  projects            Project[]
+  projectSubmissions  ProjectSubmission[]
+  reviewsGiven        Review[]          @relation("ReviewReviewer")
+  applications        Application[]
+  interviewsConducted InterviewSlot[]   @relation("Interviewer")
+  mockInterviewsAsCandidate MockInterview[] @relation("MockCandidate")
+  mockInterviewsAsMentor    MockInterview[] @relation("MockMentor")
+  resumes             Resume[]
+  roadmapProgress     RoadmapStepProgress[]
+
+  /// Postgres cannot index a partial unique on `deletedAt IS NULL` through
+  /// Prisma, so uniqueness is enforced on the raw column. A soft-deleted user
+  /// keeps its email reserved for 30 days, which is intentional: it stops an
+  /// immediate re-registration from resurrecting a suspended account.
+  @@index([collegeId, role, status])
+  @@index([collegeId, departmentId])
+  @@index([role, deletedAt])
+  @@index([createdAt])
+  @@map("users")
+}
+
+/// Single-use, expiring tokens for flows that happen outside a session:
+/// password reset, email verification, and admin invitations.
+///
+/// Stored as a SHA-256 hash, never the raw token, so a database read cannot be
+/// used to take over an account. A row is marked `usedAt` rather than deleted, so
+/// a replayed link produces "this link has already been used" instead of the
+/// misleading "invalid link".
+model VerificationToken {
+  id     String @id @default(cuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  type VerificationTokenType
+  /// SHA-256 of the token that was emailed. Unique so a duplicate cannot exist.
+  tokenHash String @unique
+
+  expiresAt DateTime
+  usedAt    DateTime?
+  /// Set when the token is invalidated early — e.g. a newer reset was requested.
+  revokedAt DateTime?
+
+  /// Request context, retained for the "someone requested a reset" audit trail.
+  requestedIp     String?
+  requestedAgent  String?
+
+  createdAt DateTime @default(now())
+
+  @@index([userId, type, usedAt])
+  @@index([expiresAt])
+  @@map("verification_tokens")
+}
+
+/// Refresh tokens are stored hashed and rotated on every use. Keeping them in a
+/// table (rather than only in a JWT) is what makes "log out all devices" and
+/// theft detection possible.
+model Session {
+  id     String @id @default(cuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  /// SHA-256 of the refresh token. A database leak does not yield usable tokens.
+  refreshTokenHash String @unique
+  /// Set when this token is rotated; a reused rotated token means theft.
+  replacedByHash   String?
+  revokedAt        DateTime?
+  revokedReason    String?
+
+  userAgent String?
+  ipAddress String?
+  expiresAt DateTime
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId, revokedAt])
+  @@index([expiresAt])
+  @@map("sessions")
+}
+
+// =============================================================================
+// STUDENT PROFILE & PASSPORT
+// =============================================================================
+
+model StudentProfile {
+  id     String @id @default(cuid())
+  userId String @unique
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  /// Denormalised for tenant filtering without a join on every read.
+  collegeId    String
+  college      College  @relation(fields: [collegeId], references: [id], onDelete: Cascade)
+  departmentId String?
+  department   Department? @relation(fields: [departmentId], references: [id], onDelete: SetNull)
+
+  rollNumber     String?
+  degree         String?
+  graduationYear Int?
+  /// 10-point scale.
+  cgpa           Decimal? @db.Decimal(4, 2)
+
+  headline       String?
+  location       String?
+  linkedinUrl    String?
+  githubUrl      String?
+  portfolioUrl   String?
+
+  /// Free-text career interests; normalised into Skill rows in Phase 2.
+  careerInterests String[]
+
+  passportVisibility PassportVisibility @default(EMPLOYERS_ONLY)
+  /// Regenerated on every contributing write (event attended, project approved,
+  /// interview scored). Stored rather than computed so the employer search can
+  /// filter and sort on it, and so the trend chart has history via ReadinessSnapshot.
+  readinessScore     Int      @default(0)
+  readinessSkills    Int      @default(0)
+  readinessProjects  Int      @default(0)
+  readinessInternship Int     @default(0)
+  readinessInterview Int      @default(0)
+  readinessUpdatedAt DateTime?
+
+  /// Rolled-up counters shown on the passport header.
+  eventsAttended      Int @default(0)
+  certificatesEarned  Int @default(0)
+  projectsCompleted   Int @default(0)
+  internshipsCompleted Int @default(0)
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  readinessHistory ReadinessSnapshot[]
+  studentSkills    StudentSkill[]
+  passportViews    PassportView[]
+
+  @@index([collegeId, departmentId, graduationYear])
+  @@index([collegeId, readinessScore])
+  @@index([passportVisibility, consentToEmployerSearch])
+  @@map("student_profiles")
+}
+
+/// Daily readiness snapshot — powers the student's progress trend and the
+/// college's readiness-distribution chart without recomputing history.
+model ReadinessSnapshot {
+  id        String @id @default(cuid())
+  studentProfileId String
+  studentProfile   StudentProfile @relation(fields: [studentProfileId], references: [id], onDelete: Cascade)
+
+  capturedOn Date
+  score      Int
+  skills     Int
+  projects   Int
+  internship Int
+  interview  Int
+
+  createdAt DateTime @default(now())
+
+  @@unique([studentProfileId, capturedOn])
+  @@index([capturedOn])
+  @@map("readiness_snapshots")
+}
+
+/// Employer views of a passport. Drives "who looked at my profile" for the
+/// student and engagement analytics for the employer, and is itself an audit
+/// trail for candidate-data access.
+model PassportView {
+  id        String @id @default(cuid())
+  studentProfileId String
+  studentProfile   StudentProfile @relation(fields: [studentProfileId], references: [id], onDelete: Cascade)
+
+  viewerUserId String?
+  viewerEmployerId String?
+  viewerLabel  String?
+
+  createdAt DateTime @default(now())
+
+  @@index([studentProfileId, createdAt])
+  @@index([viewerEmployerId, createdAt])
+  @@map("passport_views")
+}
+
+model EmployerProfile {
+  id     String @id @default(cuid())
+  userId String @unique
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  companyName    String
+  slug           String  @unique
+  logoUrl        String?
+  website        String?
+  industry       String?
+  companySize    String?
+  headquarters   String?
+  about          String? @db.Text
+
+  /// A company must clear verification before its postings appear to colleges.
+  isVerified       Boolean @default(false)
+  verifiedAt       DateTime?
+  verifiedByUserId String?
+  verificationNote String?
+
+  contactName  String?
+  contactEmail String?
+  contactPhone String?
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  jobs              Job[]
+  internships       Internship[]
+  interviewSlots    InterviewSlot[]
+  subscriptions     Subscription[]
+  passportViews     PassportView[]
+
+  @@index([isVerified, deletedAt])
+  @@map("employer_profiles")
+}
+
+// =============================================================================
+// CLUBS
+// =============================================================================
+
+model Club {
+  id        String @id @default(cuid())
+  collegeId String
+  college   College @relation(fields: [collegeId], references: [id], onDelete: Cascade)
+
+  name        String
+  slug        String
+  category    ClubCategory
+  description String       @db.Text
+  logoUrl     String?
+  bannerUrl   String?
+
+  email           String?
+  meetingSchedule String?
+  isRecruiting    Boolean @default(true)
+  isActive        Boolean @default(true)
+
+  presidentId String?
+  president   User?   @relation("ClubPresident", fields: [presidentId], references: [id], onDelete: SetNull)
+
+  memberCount Int @default(0)
+  eventCount  Int @default(0)
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  memberships ClubMembership[]
+  events      Event[]
+
+  @@unique([collegeId, slug])
+  @@index([collegeId, category, isActive])
+  @@map("clubs")
+}
+
+model ClubMembership {
+  id     String @id @default(cuid())
+  clubId String
+  club   Club   @relation(fields: [clubId], references: [id], onDelete: Cascade)
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  /// Denormalised for tenant filtering and department-level club analytics.
+  collegeId    String
+  departmentId String?
+  department   Department? @relation(fields: [departmentId], references: [id], onDelete: SetNull)
+
+  role       ClubMembershipRole   @default(MEMBER)
+  status     ClubMembershipStatus @default(PENDING)
+  message    String?              @db.Text
+  reviewNote String?
+  reviewedById String?
+  reviewedAt   DateTime?
+  joinedAt     DateTime?
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  @@unique([clubId, userId])
+  @@index([userId, status])
+  @@index([clubId, status, role])
+  @@map("club_memberships")
+}
+
+// =============================================================================
+// EVENTS
+// =============================================================================
+
+model Event {
+  id        String @id @default(cuid())
+  collegeId String
+  college   College @relation(fields: [collegeId], references: [id], onDelete: Cascade)
+
+  slug        String
+  title       String
+  summary     String?
+  description String  @db.Text
+
+  category EventCategory
+  mode     EventMode     @default(OFFLINE)
+  status   EventStatus   @default(DRAFT)
+
+  /// Venue for OFFLINE/HYBRID; meeting link for ONLINE/HYBRID.
+  venue      String?
+  meetingUrl String?
+
+  bannerUrl String?
+
+  startAt              DateTime
+  endAt                DateTime
+  registrationDeadline DateTime?
+
+  /// 0 means unlimited.
+  capacity        Int     @default(0)
+  waitlistEnabled Boolean @default(true)
+
+  /// Minor currency units (paise). Never a float.
+  fee      Int    @default(0)
+  currency String @default("INR")
+
+  certificateEnabled    Boolean @default(true)
+  certificateTemplateId String?
+  certificateTemplate   CertificateTemplate? @relation(fields: [certificateTemplateId], references: [id], onDelete: SetNull)
+
+  /// Optional scope. `clubId` set means the event belongs to that club.
+  clubId       String?
+  club         Club?       @relation(fields: [clubId], references: [id], onDelete: SetNull)
+  departmentId String?
+  department   Department? @relation(fields: [departmentId], references: [id], onDelete: SetNull)
+
+  /// Empty array = open to every year. Values are 1..6 (year of study).
+  eligibleYears Int[]
+  tags          String[]
+
+  organizerId String
+  organizer   User   @relation("EventOrganizer", fields: [organizerId], references: [id], onDelete: Restrict)
+
+  contactEmail String?
+  contactPhone String?
+
+  /// Counters maintained transactionally on registration/attendance writes.
+  registrationCount Int @default(0)
+  waitlistCount     Int @default(0)
+  attendanceCount   Int @default(0)
+  certificateCount  Int @default(0)
+
+  /// Cached feedback average, recomputed on each new review.
+  averageRating Decimal? @db.Decimal(3, 2)
+  feedbackCount Int      @default(0)
+
+  publishedAt DateTime?
+  completedAt DateTime?
+  cancelledAt DateTime?
+  cancelReason String?
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  approvals     EventApproval[]
+  registrations EventRegistration[]
+  attendances   Attendance[]
+  certificates  Certificate[]
+  feedback      Feedback[]
+
+  @@unique([collegeId, slug])
+  @@index([collegeId, status, startAt])
+  @@index([collegeId, category, startAt])
+  @@index([collegeId, clubId])
+  @@index([organizerId])
+  @@index([startAt])
+  @@map("events")
+}
+
+/// One row per approval decision. Keeping every decision (rather than a single
+/// `approvedById`) is what makes the workflow auditable: you can see a
+/// coordinator rejecting, the organiser resubmitting, then approval.
+model EventApproval {
+  id      String @id @default(cuid())
+  eventId String
+  event   Event  @relation(fields: [eventId], references: [id], onDelete: Cascade)
+
+  stage      ApprovalStage
+  decision   ApprovalDecision
+  note       String? @db.Text
+  actorId    String
+  actor      User    @relation(fields: [actorId], references: [id], onDelete: Restrict)
+
+  /// Status the event moved to as a result — lets the timeline render without
+  /// replaying every transition.
+  resultingStatus EventStatus
+
+  createdAt DateTime @default(now())
+
+  @@index([eventId, createdAt])
+  @@index([actorId])
+  @@map("event_approvals")
+}
+
+model EventRegistration {
+  id      String @id @default(cuid())
+  eventId String
+  event   Event  @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  studentId String
+  student   User @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  /// Denormalised for tenant filtering on the registration list endpoints.
+  collegeId String
+
+  status RegistrationStatus @default(CONFIRMED)
+
+  /// Position in the waitlist (1-based). Null when not waitlisted.
+  waitlistPosition Int?
+  /// Human-readable code printed under the QR on the pass, for manual lookup.
+  passCode String @unique
+
+  /// Organiser-defined answers (dietary needs, team name, T-shirt size, …).
+  responses Json?
+
+  /// Payment reference when the event is paid; Phase 1 events are free.
+  paymentReference String?
+  amountPaid       Int     @default(0)
+
+  /// Registration is a consent-gated action under the platform privacy policy.
+  consentToShare Boolean @default(true)
+
+  registeredAt DateTime  @default(now())
+  cancelledAt  DateTime?
+  cancelReason String?
+  /// Set when a waitlisted student is promoted, so the notification is idempotent.
+  promotedAt   DateTime?
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  attendance  Attendance?
+  certificate Certificate?
+
+  /// One active registration per student per event.
+  @@unique([eventId, studentId])
+  @@index([eventId, status])
+  @@index([studentId, status])
+  @@index([collegeId, registeredAt])
+  @@index([passCode])
+  @@map("event_registrations")
+}
+
+/// Attendance is a first-class record, not a boolean on the registration,
+/// because a scan carries method, scanner, device and timestamp — all of which
+/// matter when a certificate is later disputed.
+model Attendance {
+  id             String @id @default(cuid())
+  eventId        String
+  event          Event  @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  studentId      String
+  student        User   @relation("AttendanceStudent", fields: [studentId], references: [id], onDelete: Cascade)
+  registrationId String @unique
+  registration   EventRegistration @relation(fields: [registrationId], references: [id], onDelete: Cascade)
+
+  collegeId String
+
+  method     AttendanceMethod
+  markedAt   DateTime        @default(now())
+  /// Who scanned or manually checked the student in. Null for self check-in.
+  scannedById String?
+  scannedBy   User?   @relation("AttendanceScanner", fields: [scannedById], references: [id], onDelete: SetNull)
+
+  /// Required for MANUAL entries so the audit trail explains the bypass.
+  reason      String?
+  deviceLabel String?
+  /// Which QR payload was scanned — retained for replay investigation.
+  scannedTokenHash String?
+
+  ipAddress String?
+  revokedAt DateTime?
+  revokedById String?
+  revokeReason String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([eventId, studentId])
+  @@index([eventId, markedAt])
+  @@index([studentId, markedAt])
+  @@index([collegeId, markedAt])
+  @@index([method])
+  @@map("attendances")
+}
+
+// =============================================================================
+// CERTIFICATES
+// =============================================================================
+
+model CertificateTemplate {
+  id        String @id @default(cuid())
+  collegeId String
+  college   College @relation(fields: [collegeId], references: [id], onDelete: Cascade)
+
+  name         String
+  type         CertificateType
+  /// Copy with {{placeholders}}. Validated against the allowlist in
+  /// `packages/shared/src/schemas/certificate.ts` before saving.
+  bodyTemplate String  @db.Text
+  backgroundUrl String?
+  signatureLabel String?
+  signatoryName  String?
+  signatoryTitle String?
+  primaryColor   String @default("#2563EB")
+
+  isActive  Boolean @default(true)
+  isDefault Boolean @default(false)
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  events       Event[]
+  certificates Certificate[]
+
+  @@index([collegeId, type, isActive])
+  @@map("certificate_templates")
+}
+
+model Certificate {
+  id   String @id @default(cuid())
+  /// Human-readable public identifier, e.g. CC-2026-A7F3K2. This is what the
+  /// verification URL carries, so it must be unguessable-but-checkable rather
+  /// than a sequential integer.
+  certificateId String @unique
+
+  studentId String
+  student   User   @relation("CertificateRecipient", fields: [studentId], references: [id], onDelete: Cascade)
+  collegeId String
+  college   College @relation(fields: [collegeId], references: [id], onDelete: Cascade)
+
+  templateId String?
+  template   CertificateTemplate? @relation(fields: [templateId], references: [id], onDelete: SetNull)
+
+  type        CertificateType
+  status      CertificateStatus @default(ISSUED)
+  title       String
+  description String? @db.Text
+
+  eventId  String?
+  event    Event?  @relation(fields: [eventId], references: [id], onDelete: SetNull)
+  courseId String?
+  /// Phase 2: `course Course? @relation(...)`. Declared as a plain column for
+  /// now so the Phase 1 migration does not depend on a Phase 2 table.
+  registrationId String? @unique
+
+  /// "Winner", "Runner-up", "Participant", … Null for non-competitive events.
+  position String?
+
+  issuedAt      DateTime  @default(now())
+  issuedById    String?
+  issuedBy      User?     @relation("CertificateIssuer", fields: [issuedById], references: [id], onDelete: SetNull)
+  /// Signed PDF in object storage. Regenerated on demand if absent.
+  pdfUrl        String?
+  /// SHA-256 of the PDF, so a downloaded copy can be checked against the record.
+  pdfChecksum   String?
+
+  revokedAt     DateTime?
+  revokedReason String?
+
+  /// Set when the "certificate issued" email goes out, so bulk sends are
+  /// idempotent and can be resumed after a failure.
+  emailedAt DateTime?
+  emailError String?
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  @@index([studentId, status])
+  @@index([collegeId, issuedAt])
+  @@index([eventId, type])
+  @@index([status, issuedAt])
+  @@map("certificates")
+}
+
+// =============================================================================
+// FEEDBACK
+// =============================================================================
+
+model Feedback {
+  id      String @id @default(cuid())
+  eventId String
+  event   Event  @relation(fields: [eventId], references: [id], onDelete: Cascade)
+
+  authorId String
+  author   User   @relation("FeedbackAuthor", fields: [authorId], references: [id], onDelete: Cascade)
+  collegeId String
+
+  /// Overall rating 1–5; the dimension scores default to this when unset.
+  rating Int
+  contentRating      Int?
+  speakerRating      Int?
+  organizationRating Int?
+
+  comment     String? @db.Text
+  suggestions String? @db.Text
+  wouldRecommend Boolean?
+  /// When true the comment is rendered without the student's name on the public
+  /// event page. The author link is retained for abuse handling.
+  anonymous Boolean @default(false)
+
+  /// Moderated comments are hidden from public view but kept for the organiser.
+  isHidden Boolean @default(false)
+  hiddenReason String?
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  /// One review per student per event.
+  @@unique([eventId, authorId])
+  @@index([eventId, rating])
+  @@index([collegeId, createdAt])
+  @@map("feedback")
+}
+
+// =============================================================================
+// FILE STORAGE
+// =============================================================================
+
+/// Metadata for every uploaded object. The storage driver (local disk or S3)
+/// only sees keys; ownership, purpose and validation live here.
+model FileAsset {
+  id     String @id @default(cuid())
+  ownerId String
+  owner   User   @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  collegeId String?
+
+  key       String  @unique
+  url       String
+  driver    StorageDriver @default(LOCAL)
+  purpose   FilePurpose
+  mimeType  String
+  size      Int
+  originalName String
+  /// Magic-byte sniff of the uploaded bytes. A mismatch against `mimeType`
+  /// rejects the upload in `middleware/upload.ts`.
+  detectedMimeType String?
+  checksum  String?
+  isPublic  Boolean @default(false)
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  @@index([ownerId, purpose])
+  @@index([collegeId, purpose])
+  @@map("file_assets")
+}
+
+// =============================================================================
+// NOTIFICATIONS
+// =============================================================================
+
+model Notification {
+  id     String @id @default(cuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  type NotificationType
+  title String
+  body  String @db.Text
+  actionUrl String?
+  /// Structured payload for deep links and for the notification templating layer.
+  data Json?
+
+  /// Delivery state per channel. IN_APP rows are created SENT.
+  status NotificationStatus @default(QUEUED)
+  readAt DateTime?
+
+  /// Set when the email adapter accepted the message.
+  emailedAt DateTime?
+  emailError String?
+
+  /// Groups repeat notifications (e.g. three reminders for one event).
+  groupKey String?
+  dedupeKey String?  @unique
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId, readAt, createdAt])
+  @@index([userId, type, createdAt])
+  @@index([createdAt])
+  @@map("notifications")
+}
+
+/// One row per user × notification type. Absent row = platform defaults apply.
+model NotificationPreference {
+  id     String @id @default(cuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  type     NotificationType
+  channels NotificationChannel[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, type])
+  @@map("notification_preferences")
+}
+
+/// Per-user delivery settings that are not type-specific.
+model NotificationSetting {
+  id     String @id @default(cuid())
+  userId String @unique
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  emailEnabled    Boolean         @default(true)
+  pushEnabled     Boolean         @default(false)
+  whatsappEnabled Boolean         @default(false)
+  digestFrequency DigestFrequency @default(INSTANT)
+  quietHoursStart Int?
+  quietHoursEnd   Int?
+  timezone        String          @default("Asia/Kolkata")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("notification_settings")
+}
+
+// =============================================================================
+// SKILLS  (Phase 2 — schema defined now, routes later)
+// =============================================================================
+
+model SkillCategory {
+  id          String  @id @default(cuid())
+  name        String  @unique
+  slug        String  @unique
+  description String?
+  iconName    String?
+  /// Display order on the radar chart and the assessment picker.
+  sortOrder   Int     @default(0)
+  /// Colour token shared with the web app's chart palette.
+  colorToken  String  @default("blue")
+  isActive    Boolean @default(true)
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  skills Skill[]
+
+  @@map("skill_categories")
+}
+
+model Skill {
+  id         String @id @default(cuid())
+  categoryId String
+  category   SkillCategory @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+
+  name String
+  slug String
+  description String?
+  /// "Beginner", "Latent", … — the level a job typically expects.
+  expectedLevel ProficiencyLevel @default(INTERMEDIATE)
+
+  /// Null = platform-global catalogue skill. Set = a college-specific skill.
+  collegeId String?
+  college   College? @relation(fields: [collegeId], references: [id], onDelete: Cascade)
+  departmentId String?
+  department   Department? @relation(fields: [departmentId], references: [id], onDelete: SetNull)
+
+  isActive Boolean @default(true)
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  studentSkills StudentSkill[]
+  jobSkills     JobSkill[]
+
+  @@unique([slug, collegeId])
+  @@index([categoryId, isActive])
+  @@index([collegeId])
+  @@map("skills")
+}
+
+model StudentSkill {
+  id      String @id @default(cuid())
+  studentProfileId String
+  studentProfile   StudentProfile @relation(fields: [studentProfileId], references: [id], onDelete: Cascade)
+  skillId String
+  skill   Skill  @relation(fields: [skillId], references: [id], onDelete: Cascade)
+
+  proficiency ProficiencyLevel
+  /// 0–100. Derived from `proficiency` when the student self-declares, and from
+  /// the assessment score when it comes from an attempt.
+  score Int @default(0)
+  source SkillSource @default(SELF)
+  /// True only when the score has evidence behind it (assessment, mentor, course).
+  isVerified Boolean @default(false)
+  verifiedById String?
+  verifiedAt   DateTime?
+
+  /// Years/months of practice, optional context on the passport skill list.
+  yearsExperience Decimal? @db.Decimal(3, 1)
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  @@unique([studentProfileId, skillId])
+  @@index([skillId, isVerified])
+  @@map("student_skills")
+}
+
+model Assessment {
+  id         String @id @default(cuid())
+  collegeId  String?
+  name       String
+  slug       String
+  description String? @db.Text
+  /// INTEREST = career-interest questionnaire (no right answers).
+  /// SKILL = timed MCQ quiz producing a scored skill profile.
+  kind       String  @default("SKILL")
+  categoryId String?
+  skillId    String?
+  durationMinutes Int @default(20)
+  passScore  Int     @default(60)
+  isPremium  Boolean @default(false)
+  isActive   Boolean @default(true)
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  questions AssessmentQuestion[]
+  attempts  AssessmentAttempt[]
+
+  @@unique([slug, collegeId])
+  @@index([collegeId, isActive])
+  @@map("assessments")
+}
+
+model AssessmentQuestion {
+  id           String @id @default(cuid())
+  assessmentId String
+  assessment   Assessment @relation(fields: [assessmentId], references: [id], onDelete: Cascade)
+  skillId      String?
+
+  prompt   String @db.Text
+  /// [{ id: "a", text: "…" }, …] — ids are stable so answers survive reordering.
+  options  Json
+  /// Option id of the correct answer. Excluded from every student-facing payload.
+  correctOptionId String
+  explanation String? @db.Text
+  difficulty  Int     @default(2)
+  points      Int     @default(1)
+  sortOrder   Int     @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([assessmentId, sortOrder])
+  @@map("assessment_questions")
+}
+
+model AssessmentAttempt {
+  id           String @id @default(cuid())
+  assessmentId String
+  assessment   Assessment @relation(fields: [assessmentId], references: [id], onDelete: Cascade)
+  userId       String
+  user         User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  collegeId    String?
+
+  startedAt   DateTime  @default(now())
+  submittedAt DateTime?
+  /// Answers as submitted: { questionId: optionId }.
+  answers     Json?
+  score       Int?
+  /// Per-skill breakdown so the radar chart needs no recomputation.
+  breakdown   Json?
+  passed      Boolean?
+
+  /// Set when the attempt feeds the passport, so a re-take does not double-count.
+  appliedToProfile Boolean @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId, submittedAt])
+  @@index([assessmentId, score])
+  @@map("assessment_attempts")
+}
+
+model Roadmap {
+  id      String @id @default(cuid())
+  userId  String
+  /// Career track the roadmap targets, e.g. "Business Analyst".
+  track   String
+  title   String
+  summary String?
+  /// Rule-based today (`services/ai/roadmap.service.ts`); LLM-generated later.
+  generatedBy String @default("rule-based")
+  /// Snapshot of the gaps that produced this plan, for explainability.
+  gapSnapshot Json?
+  isActive Boolean @default(true)
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  steps RoadmapStep[]
+
+  @@index([userId, isActive])
+  @@map("roadmaps")
+}
+
+model RoadmapStep {
+  id        String @id @default(cuid())
+  roadmapId String
+  roadmap   Roadmap @relation(fields: [roadmapId], references: [id], onDelete: Cascade)
+
+  title       String
+  description String? @db.Text
+  /// ATTEND_EVENT | COMPLETE_COURSE | BUILD_PROJECT | TAKE_ASSESSMENT | APPLY |
+  /// BOOK_MOCK — the discriminator that tells the UI which CTA to render.
+  actionType  String
+  /// Optional deep target, e.g. a course id or skill id.
+  targetId    String?
+  order       Int    @default(0)
+  estimatedHours Int?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  progress RoadmapStepProgress[]
+
+  @@index([roadmapId, order])
+  @@map("roadmap_steps")
+}
+
+model RoadmapStepProgress {
+  id            String @id @default(cuid())
+  roadmapStepId String
+  roadmapStep   RoadmapStep @relation(fields: [roadmapStepId], references: [id], onDelete: Cascade)
+  userId        String
+  user          User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  status      String   @default("NOT_STARTED")
+  progressPct Int      @default(0)
+  completedAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([roadmapStepId, userId])
+  @@map("roadmap_step_progress")
+}
+
+// =============================================================================
+// LEARNING  (Phase 2)
+// =============================================================================
+
+model Course {
+  id       String  @id @default(cuid())
+  collegeId String?
+  college  College? @relation(fields: [collegeId], references: [id], onDelete: Cascade)
+
+  title       String
+  slug        String
+  summary     String?
+  description String  @db.Text
+  thumbnailUrl String?
+  level       CourseLevel   @default(BEGINNER)
+  category    String?
+  language    String        @default("English")
+  durationMinutes Int?
+
+  authorId String
+  author   User   @relation("CourseAuthor", fields: [authorId], references: [id], onDelete: Restrict)
+
+  isPremium Boolean @default(false)
+  price     Int     @default(0)
+  currency  String  @default("INR")
+  isPublished Boolean @default(false)
+  publishedAt DateTime?
+
+  enrollCount Int @default(0)
+  completionCount Int @default(0)
+  averageRating Decimal? @db.Decimal(3, 2)
+
+  /// Skills this course builds — used by the roadmap matcher and gap analysis.
+  skillIds String[]
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  modules     Module[]
+  enrollments Enrollment[]
+  projects    Project[]
+
+  @@unique([slug, collegeId])
+  @@index([collegeId, isPublished])
+  @@index([isPremium, level])
+  @@map("courses")
+}
+
+model Module {
+  id       String @id @default(cuid())
+  courseId String
+  course   Course @relation(fields: [courseId], references: [id], onDelete: Cascade)
+
+  title       String
+  description String?
+  order       Int    @default(0)
+  /// Set when the module is a checkpoint learners must clear before continuing.
+  requiresQuiz Boolean @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  lessons Lesson[]
+
+  @@index([courseId, order])
+  @@map("modules")
+}
+
+model Lesson {
+  id       String @id @default(cuid())
+  moduleId String
+  module   Module @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+
+  title       String
+  /// VIDEO | TEXT | QUIZ | ASSIGNMENT
+  contentType String @default("TEXT")
+  videoUrl    String?
+  content     String? @db.Text
+  durationMinutes Int?
+  order       Int @default(0)
+  isPreview   Boolean @default(false)
+  quiz        Json?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([moduleId, order])
+  @@map("lessons")
+}
+
+model Enrollment {
+  id       String @id @default(cuid())
+  courseId String
+  course   Course @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  userId   String
+  user     User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  collegeId String?
+
+  status      EnrollmentStatus @default(ENROLLED)
+  progressPct Int              @default(0)
+  /// Completed lesson ids — a list rather than a join table because the read
+  /// pattern is always "all progress for one enrolment".
+  completedLessonIds String[]
+  lastViewedAt DateTime?
+  completedAt  DateTime?
+
+  /// Certificate issued on completion, if the course offers one.
+  certificateId String?
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  @@unique([courseId, userId])
+  @@index([userId, status])
+  @@index([courseId, status])
+  @@map("enrollments")
+}
+
+// =============================================================================
+// PROJECTS  (Phase 2)
+// =============================================================================
+
+model Project {
+  id       String @id @default(cuid())
+  collegeId String?
+  title     String
+  /// Null for platform-authored briefs; set when a mentor created it for a cohort.
+  courseId  String?
+  course    Course? @relation(fields: [courseId], references: [id], onDelete: SetNull)
+
+  summary     String?
+  brief       String  @db.Text
+  /// What a good submission must contain — shown to the student up front.
+  requirements String[]
+  techStack    String[]
+  skillIds     String[]
+  difficulty   Int     @default(2)
+  estimatedHours Int?
+  isPremium    Boolean @default(false)
+  isCaseStudy  Boolean @default(false)
+  thumbnailUrl String?
+
+  createdById String?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  submissions ProjectSubmission[]
+
+  @@index([collegeId, difficulty])
+  @@map("projects")
+}
+
+model ProjectSubmission {
+  id        String @id @default(cuid())
+  projectId String
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  collegeId String?
+
+  status ProjectStatus @default(DRAFT)
+
+  repoUrl     String?
+  liveUrl     String?
+  fileUrl     String?
+  thumbnailUrl String?
+  /** Student's own write-up — what they built and what they learned. */
+  summary     String? @db.Text
+  submissionNote String? @db.Text
+
+  /// The approved version is the one shown on the passport portfolio.
+  isApproved Boolean  @default(false)
+  approvedAt DateTime?
+
+  score Int?
+
+  submittedAt DateTime?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  reviews Review[]
+
+  @@index([userId, status])
+  @@index([projectId, status])
+  @@map("project_submissions")
+}
+
+/// Mentor review of a submission, scored against a rubric. The rubric lives in
+/// `rubric` as [{ criterion, maxPoints, score, comment }] so criteria can evolve
+/// without a migration.
+model Review {
+  id         String @id @default(cuid())
+  submissionId String
+  submission   ProjectSubmission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+
+  reviewerId String
+  reviewer   User   @relation("ReviewReviewer", fields: [reviewerId], references: [id], onDelete: Restrict)
+
+  rubric Json
+  totalScore Int
+  maxScore   Int  @default(100)
+  feedback   String @db.Text
+  /// What to fix on the next attempt — shown prominently on the student side.
+  strengths  String[]
+  improvements String[]
+
+  decision ProjectStatus
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  @@index([submissionId])
+  @@index([reviewerId, createdAt])
+  @@map("reviews")
+}
+
+// =============================================================================
+// INTERNSHIPS & JOBS  (Phase 2 / Phase 3)
+// =============================================================================
+
+model Internship {
+  id       String @id @default(cuid())
+  employerId String?
+  employer   EmployerProfile? @relation(fields: [employerId], references: [id], onDelete: Cascade)
+  collegeId  String?
+  /// Set when the placement cell curates an internship itself rather than an
+  /// employer posting it.
+  isCurated  Boolean @default(false)
+
+  title       String
+  slug        String
+  description String  @db.Text
+  companyName String
+  companyLogoUrl String?
+  role        String?
+  department  String?
+
+  workMode WorkMode @default(ONSITE)
+  location String?
+  durationMonths Int?
+  /// Stipend in minor units per month.
+  stipendMonthly Int?
+  currency String @default("INR")
+
+  skillIds  String[]
+  minReadinessScore Int?
+  eligibleGraduationYears Int[]
+  openings  Int @default(1)
+  isPremium Boolean @default(false)
+
+  /// INTERNSHIP | INDUSTRY_PROJECT | APPRENTICESHIP
+  opportunityKind String @default("INTERNSHIP")
+
+  applicationDeadline DateTime?
+  startDate DateTime?
+  isPublished Boolean @default(false)
+  publishedAt DateTime?
+  closedAt    DateTime?
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  applications Application[]
+
+  @@unique([slug])
+  @@index([collegeId, isPublished])
+  @@index([employerId, isPublished])
+  @@index([workMode, isPremium])
+  @@map("internships")
+}
+
+model Job {
+  id         String @id @default(cuid())
+  employerId String
+  employer   EmployerProfile @relation(fields: [employerId], references: [id], onDelete: Cascade)
+
+  title       String
+  slug        String
+  description String  @db.Text
+  role        String?
+  department  String?
+
+  employmentType String @default("FULL_TIME")
+  workMode       WorkMode @default(ONSITE)
+  location       String?
+
+  /// Salary in minor units per year (CTC).
+  salaryMin Int?
+  salaryMax Int?
+  currency  String @default("INR")
+  isSalaryVisible Boolean @default(true)
+
+  experienceMinYears Int @default(0)
+  experienceMaxYears Int?
+
+  /// Minimum education the employer will accept, e.g. "BBA", "B.Tech".
+  educationRequirement String?
+  eligibleGraduationYears Int[]
+  eligibleCollegeIds String[]
+
+  skillIds String[]
+  /// Cached minimum readiness a candidate needs to be surfaced in search.
+  minReadinessScore Int?
+
+  openings Int @default(1)
+
+  applicationDeadline DateTime?
+  joiningDate DateTime?
+
+  status     JobStatus @default(DRAFT)
+  publishedAt DateTime?
+  closedAt    DateTime?
+
+  viewCount     Int @default(0)
+  applicantCount Int @default(0)
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  skills       JobSkill[]
+  applications Application[]
+
+  @@unique([slug])
+  @@index([status, publishedAt])
+  @@index([employerId, status])
+  @@index([workMode, employmentType])
+  @@map("jobs")
+}
+
+/// Normalised job→skill link, weighted so match scoring can rank a "must-have"
+/// skill above a "nice to have".
+model JobSkill {
+  id     String @id @default(cuid())
+  jobId  String
+  job    Job    @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  skillId String
+  skill  Skill  @relation(fields: [skillId], references: [id], onDelete: Cascade)
+
+  required Boolean @default(true)
+  weight   Int     @default(1)
+  minLevel ProficiencyLevel @default(INTERMEDIATE)
+
+  @@unique([jobId, skillId])
+  @@index([skillId])
+  @@map("job_skills")
+}
+
+model Application {
+  id     String @id @default(cuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  collegeId String
+
+  /// Exactly one of jobId / internshipId is set. Enforced in the service layer,
+  /// not by a check constraint, so the pair can evolve independently.
+  jobId       String?
+  job         Job?       @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  internshipId String?
+  internship   Internship? @relation(fields: [internshipId], references: [id], onDelete: Cascade)
+
+  status ApplicationStatus @default(APPLIED)
+
+  /// Frozen snapshot of the passport at apply time. Employers must see what the
+  /// candidate actually submitted, even after the profile changes.
+  passportSnapshot Json?
+  resumeUrl        String?
+  coverNote        String? @db.Text
+
+  /// Rule-based score today; replaced by the AI matcher behind the same interface.
+  matchScore Int?
+  matchReasons String[]
+
+  source String @default("DIRECT")
+
+  /// Employer notes are per-application and visible only within the employer.
+  notes     Json?
+  /// Set when the candidate consents to their profile being shared with this
+  /// employer — required by the platform privacy policy even for apply flows.
+  consentToShare Boolean @default(true)
+
+  appliedAt  DateTime  @default(now())
+  reviewedAt DateTime?
+  shortlistedAt DateTime?
+  rejectedAt DateTime?
+  rejectReason String?
+  offeredAt  DateTime?
+  hiredAt    DateTime?
+  withdrawnAt DateTime?
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  interviews InterviewSlot[]
+
+  @@unique([userId, jobId])
+  @@unique([userId, internshipId])
+  @@index([userId, status])
+  @@index([collegeId, status])
+  @@index([jobId, status])
+  @@index([status, appliedAt])
+  @@map("applications")
+}
+
+model InterviewSlot {
+  id            String @id @default(cuid())
+  applicationId String
+  application   Application @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+
+  /// Null for employer-managed slots not yet assigned to a named interviewer.
+  interviewerId String?
+  interviewer   User?   @relation("Interviewer", fields: [interviewerId], references: [id], onDelete: SetNull)
+
+  /// ROUND | TECHNICAL | HR | MANAGERIAL | MOCK
+  stage String @default("TECHNICAL")
+  mode  InterviewMode @default(ONLINE)
+
+  scheduledAt DateTime
+  durationMinutes Int @default(45)
+  timezone String @default("Asia/Kolkata")
+
+  meetingUrl String?
+  location   String?
+  interviewerNames String[]
+
+  status String @default("SCHEDULED")
+  /// Candidate and interviewer responses, kept separate so either can reschedule.
+  candidateResponse String? @default("PENDING")
+  candidateRespondedAt DateTime?
+
+  reminderSentAt DateTime?
+  feedback     Json?
+  score        Int?
+  result       String?
+  notes        String? @db.Text
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  @@index([applicationId, scheduledAt])
+  @@index([interviewerId, scheduledAt])
+  @@index([scheduledAt, status])
+  @@map("interview_slots")
+}
+
+model MockInterview {
+  id     String @id @default(cuid())
+  candidateId String
+  candidate   User @relation("MockCandidate", fields: [candidateId], references: [id], onDelete: Cascade)
+  mentorId    String?
+  mentor      User? @relation("MockMentor", fields: [mentorId], references: [id], onDelete: SetNull)
+  collegeId   String?
+
+  /// Role the practice targets, e.g. "Data Analyst".
+  targetRole String
+  /// MENTOR | SELF_PRACTICE
+  mode       String @default("MENTOR")
+  status     MockInterviewStatus @default(REQUESTED)
+
+  scheduledAt DateTime?
+  durationMinutes Int @default(30)
+  meetingUrl String?
+
+  /// Question ids drawn from the role's question bank for self-practice mode.
+  questionIds String[]
+  /// Candidate answers: [{ questionId, text, audioUrl, videoUrl, durationSeconds }]
+  answers Json?
+
+  isPremium Boolean @default(false)
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  feedback MockInterviewFeedback[]
+
+  @@index([candidateId, status])
+  @@index([mentorId, scheduledAt])
+  @@map("mock_interviews")
+}
+
+model MockInterviewFeedback {
+  id               String @id @default(cuid())
+  mockInterviewId  String
+  mockInterview    MockInterview @relation(fields: [mockInterviewId], references: [id], onDelete: Cascade)
+
+  mentorId String
+
+  communicationScore Int
+  confidenceScore    Int
+  contentScore       Int
+  overallScore       Int
+
+  strengths   String[]
+  improvements String[]
+  comments    String? @db.Text
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([mockInterviewId])
+  @@map("mock_interview_feedback")
+}
+
+// =============================================================================
+// RESUME  (Phase 2)
+// =============================================================================
+
+model Resume {
+  id     String @id @default(cuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  title      String @default("My Resume")
+  /// CLASSIC | MODERN | MINIMAL | ACADEMIC
+  templateId String @default("classic")
+
+  /// Structured resume content, populated from the passport and then editable.
+  content Json
+
+  /// Rule-based score + suggestions today; AI review later behind the same
+  /// interface (`services/ai/resume.service.ts`).
+  score      Int      @default(0)
+  suggestions String[]
+  scoredAt   DateTime?
+
+  pdfUrl String?
+  isPrimary Boolean @default(false)
+  version   Int     @default(1)
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  @@index([userId, isPrimary])
+  @@map("resumes")
+}
+
+// =============================================================================
+// SUBSCRIPTIONS & PAYMENTS
+// =============================================================================
+
+model Subscription {
+  id String @id @default(cuid())
+
+  /// A subscription belongs to exactly one of: a user (premium student), a
+  /// college, or an employer.
+  userId     String?
+  collegeId  String?
+  college    College? @relation(fields: [collegeId], references: [id], onDelete: Cascade)
+  employerId String?
+  employer   EmployerProfile? @relation(fields: [employerId], references: [id], onDelete: Cascade)
+
+  plan   SubscriptionPlan
+  status SubscriptionStatus @default(TRIALING)
+
+  currentPeriodStart DateTime
+  currentPeriodEnd   DateTime
+  cancelAtPeriodEnd  Boolean @default(false)
+  cancelledAt        DateTime?
+  trialEndsAt        DateTime?
+
+  /// Provider subscription id (Razorpay). Null for FREE plans.
+  providerRef String?
+  seats       Int     @default(1)
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  payments Payment[]
+
+  @@index([userId, status])
+  @@index([collegeId, status])
+  @@index([employerId, status])
+  @@map("subscriptions")
+}
+
+model Payment {
+  id             String @id @default(cuid())
+  subscriptionId String?
+  subscription   Subscription? @relation(fields: [subscriptionId], references: [id], onDelete: SetNull)
+
+  userId    String?
+  collegeId String?
+  amount    Int
+  currency  String @default("INR")
+
+  status PaymentStatus @default(CREATED)
+  /// Razorpay order / payment ids. Stubbed in Phase 1.
+  providerOrderId   String?
+  providerPaymentId String?
+  providerSignature String?
+
+  description String?
+  /// Raw provider callback, retained for reconciliation and disputes.
+  rawPayload  Json?
+
+  paidAt      DateTime?
+  failedAt    DateTime?
+  failureReason String?
+  refundedAt  DateTime?
+  refundAmount Int?
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  @@index([userId, status])
+  @@index([collegeId, status])
+  @@index([providerPaymentId])
+  @@map("payments")
+}
+
+// =============================================================================
+// AUDIT
+// =============================================================================
+
+/// Append-only. Every approval, certificate issue/revoke, scan override, export
+/// and bulk operation writes here. Never updated or deleted by application code.
+model AuditLog {
+  id     String @id @default(cuid())
+  userId String?
+  user   User?  @relation(fields: [userId], references: [id], onDelete: SetNull)
+  collegeId String?
+  college   College? @relation(fields: [collegeId], references: [id], onDelete: SetNull)
+
+  action AuditAction
+  /// Model name, e.g. "Event".
+  entity   String
+  entityId String?
+  /// Field-level diff for updates: { before: {...}, after: {...} }.
+  changes  Json?
+  /// Non-PII context: route, method, result count for exports.
+  metadata Json?
+
+  ipAddress String?
+  userAgent String?
+  requestId String?
+
+  createdAt DateTime @default(now())
+
+  @@index([collegeId, createdAt])
+  @@index([userId, createdAt])
+  @@index([entity, entityId])
+  @@index([action, createdAt])
+  @@map("audit_logs")
+}
