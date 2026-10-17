@@ -20,8 +20,8 @@ import {
 import { sanitizeMultilineText, sanitizeText } from '../../utils/sanitize.js';
 import { generatePassCode, uniqueSlug } from '../../utils/ids.js';
 import { auditAction, auditBulk, auditCreate, auditUpdate, type AuditContext } from '../../utils/audit.js';
-import { notify, notifyMany } from '../notifications/notification.service.js';
-import * as templates from '../mailer/templates.js';
+import { notify, notifyMany } from '../../services/notifications/notification.service.js';
+import * as templates from '../../services/mailer/templates.js';
 import { env } from '../../config/env.js';
 
 /**

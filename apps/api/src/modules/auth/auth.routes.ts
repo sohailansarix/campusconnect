@@ -87,7 +87,7 @@ authRouter.post(
     z
       .object({
         token: z.string().min(20),
-        password: authSchemas.resetPassword.shape.password,
+        password: authSchemas.password,
         confirmPassword: z.string(),
       })
       .refine((v) => v.password === v.confirmPassword, {

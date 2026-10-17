@@ -375,10 +375,28 @@ export async function uploadFile(
  * plain navigation cannot carry an Authorization header.
  */
 export async function downloadFile(path: string, fallbackName = 'export.csv'): Promise<void> {
-  const response = await fetch(buildUrl(path), { credentials: 'include' });
+  const url = buildUrl(path);
+  const request = () => {
+    const headers = new Headers();
+    if (accessToken) headers.set('Authorization', `Bearer ${accessToken}`);
+    return fetch(url, { credentials: 'include', headers });
+  };
+
+  let response = await request();
+  if (response.status === 401) {
+    const refreshed = await refreshAccessToken();
+    if (refreshed) response = await request();
+  }
 
   if (!response.ok) {
-    throw new ApiError('INTERNAL_ERROR', 'The export could not be generated', response.status);
+    let message = 'The export could not be generated';
+    try {
+      const payload = (await response.json()) as ApiErrorBody;
+      message = payload.error?.message ?? message;
+    } catch {
+      // Keep a useful download error if a proxy returned a non-JSON body.
+    }
+    throw new ApiError('INTERNAL_ERROR', message, response.status);
   }
 
   // Prefer the server's filename when it supplies one.
@@ -387,15 +405,15 @@ export async function downloadFile(path: string, fallbackName = 'export.csv'): P
   const filename = match?.[1] ?? fallbackName;
 
   const blob = await response.blob();
-  const url = URL.createObjectURL(blob);
+  const objectUrl = URL.createObjectURL(blob);
   const anchor = document.createElement('a');
 
-  anchor.href = url;
+  anchor.href = objectUrl;
   anchor.download = filename;
   document.body.appendChild(anchor);
   anchor.click();
   document.body.removeChild(anchor);
 
   // Revoked on the next tick so Safari has time to start the download.
-  setTimeout(() => URL.revokeObjectURL(url), 1_000);
+  setTimeout(() => URL.revokeObjectURL(objectUrl), 1_000);
 }

@@ -1,7 +1,7 @@
 'use client';
 
 import * as React from 'react';
-import { get } from '@/lib/api';
+import { apiList } from '@/lib/api';
 
 /**
  * Generic async-data hook.
@@ -151,13 +151,15 @@ export function useList<T>(
 
   const state = useAsync<PaginatedResult<T>>(
     async () => {
-      const result = await get<{ items: T[]; meta: PaginatedResult<T>['meta'] }>(path, {
+      const result = await apiList<T>(path, {
         query: query as Record<string, string | number | boolean>,
       });
 
-      // The API returns items in `data` and pagination in `meta`; the list hook
-      // normalises that into one object.
-      return { items: (result as unknown as { items: T[] }).items ?? [], meta: (result as unknown as { meta: PaginatedResult<T>['meta'] }).meta };
+      // `apiList` preserves the response envelope, including pagination metadata.
+      return {
+        items: result.data,
+        meta: result.meta as PaginatedResult<T>['meta'],
+      };
     },
     { enabled, deps: [path, JSON.stringify(query)] },
   );

@@ -4,9 +4,8 @@ import * as React from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import {
-  Award, BadgeCheck, Bell, Briefcase, Building2, CalendarDays, ChevronLeft, FileText,
-  GraduationCap, LayoutDashboard, LineChart, Menu, Moon, ScanLine, Settings, Shield,
-  Sun, Target, Users, X,
+  Award, BadgeCheck, Bell, Building2, CalendarDays, ChevronLeft, LayoutDashboard, Menu,
+  Moon, ScanLine, Settings, Sun, X,
 } from 'lucide-react';
 import { useTheme } from 'next-themes';
 import { roleHasPermission, type Permission } from '@campusconnect/shared';
@@ -48,9 +47,12 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
   const { user, loading, signOut } = useSession();
   const { theme, setTheme } = useTheme();
 
+  const [themeReady, setThemeReady] = React.useState(false);
   const [mobileOpen, setMobileOpen] = React.useState(false);
   const [collapsed, setCollapsed] = React.useState(false);
   const unreadCount = useUnreadCount(Boolean(user));
+
+  React.useEffect(() => setThemeReady(true), []);
 
   // Restore the collapsed preference so a user's choice survives navigation.
   React.useEffect(() => {
@@ -203,7 +205,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
               type="button"
               onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
               className="flex size-9 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-              aria-label={`Switch to ${theme === 'dark' ? 'light' : 'dark'} mode`}
+              aria-label={themeReady ? `Switch to ${theme === 'dark' ? 'light' : 'dark'} mode` : 'Toggle color theme'}
             >
               <Sun className="size-4 dark:hidden" />
               <Moon className="hidden size-4 dark:block" />
@@ -262,27 +264,16 @@ export function buildNav(role: Parameters<typeof roleHasPermission>[0]): NavSect
   /* --- Always: the personal surface ------------------------------------- */
   const personal: NavItem[] = [
     { label: 'Dashboard', href: '/dashboard', icon: <LayoutDashboard className="size-4" />, exact: true },
-    { label: 'My Events', href: '/dashboard/events', icon: <CalendarDays className="size-4" /> },
     { label: 'Notifications', href: '/dashboard/notifications', icon: <Bell className="size-4" />, badge: 'notifications' },
     { label: 'Settings', href: '/dashboard/settings', icon: <Settings className="size-4" /> },
   ];
-  sections.push({ title: 'You', items: personal });
-
-  /* --- Student ----------------------------------------------------------- */
-  if (any(['passport:read_own', 'assessment:take', 'course:enroll', 'job:apply'])) {
-    sections.push({
-      title: 'Your career',
-      items: [
-        { label: 'Career Passport', href: '/dashboard/passport', icon: <BadgeCheck className="size-4" /> },
-        { label: 'Skills', href: '/dashboard/skills', icon: <Target className="size-4" /> },
-        { label: 'Courses', href: '/dashboard/courses', icon: <GraduationCap className="size-4" /> },
-        { label: 'Projects', href: '/dashboard/projects', icon: <FileText className="size-4" /> },
-        { label: 'Certificates', href: '/dashboard/certificates', icon: <Award className="size-4" /> },
-        { label: 'Internships', href: '/dashboard/internships', icon: <Briefcase className="size-4" /> },
-        { label: 'Applications', href: '/dashboard/applications', icon: <Target className="size-4" /> },
-      ],
-    });
+  if (any(['event:register'])) {
+    personal.splice(1, 0,
+      { label: 'My Events', href: '/dashboard/events', icon: <CalendarDays className="size-4" /> },
+      { label: 'Certificates', href: '/dashboard/certificates', icon: <Award className="size-4" /> },
+    );
   }
+  sections.push({ title: 'You', items: personal });
 
   /* --- Organiser --------------------------------------------------------- */
   if (any(['event:create', 'event:approve_faculty', 'event:manage_attendance'])) {
@@ -291,7 +282,6 @@ export function buildNav(role: Parameters<typeof roleHasPermission>[0]): NavSect
       items: [
         { label: 'My Events', href: '/dashboard/organizer/events', icon: <CalendarDays className="size-4" /> },
         { label: 'Scan Attendance', href: '/dashboard/organizer/scan', icon: <ScanLine className="size-4" /> },
-        { label: 'Clubs', href: '/dashboard/organizer/clubs', icon: <Users className="size-4" /> },
         ...(any(['event:approve_faculty', 'event:approve_admin'])
           ? [{ label: 'Approvals', href: '/dashboard/organizer/approvals', icon: <BadgeCheck className="size-4" /> }]
           : []),
@@ -308,49 +298,6 @@ export function buildNav(role: Parameters<typeof roleHasPermission>[0]): NavSect
       title: 'Institution',
       items: [
         { label: 'Overview', href: '/dashboard/college', icon: <Building2 className="size-4" />, exact: true },
-        { label: 'Engagement', href: '/dashboard/college/engagement', icon: <LineChart className="size-4" /> },
-        { label: 'Readiness', href: '/dashboard/college/placement', icon: <Target className="size-4" /> },
-        { label: 'Students', href: '/dashboard/college/students', icon: <Users className="size-4" /> },
-        { label: 'Departments', href: '/dashboard/college/departments', icon: <Building2 className="size-4" /> },
-      ],
-    });
-  }
-
-  /* --- Trainer / mentor -------------------------------------------------- */
-  if (any(['project:review', 'course:manage', 'interview:conduct'])) {
-    sections.push({
-      title: 'Mentor',
-      items: [
-        { label: 'Review queue', href: '/dashboard/mentor', icon: <FileText className="size-4" />, exact: true },
-        { label: 'Courses', href: '/dashboard/mentor/courses', icon: <GraduationCap className="size-4" /> },
-        { label: 'Interviews', href: '/dashboard/mentor/interviews', icon: <Users className="size-4" /> },
-      ],
-    });
-  }
-
-  /* --- Employer ---------------------------------------------------------- */
-  if (any(['job:create', 'candidate:search', 'application:read_employer'])) {
-    sections.push({
-      title: 'Hiring',
-      items: [
-        { label: 'Overview', href: '/dashboard/employer', icon: <LayoutDashboard className="size-4" />, exact: true },
-        { label: 'Postings', href: '/dashboard/employer/jobs', icon: <Briefcase className="size-4" /> },
-        { label: 'Pipeline', href: '/dashboard/employer/pipeline', icon: <Target className="size-4" /> },
-        { label: 'Candidates', href: '/dashboard/employer/candidates', icon: <Users className="size-4" /> },
-        { label: 'Interviews', href: '/dashboard/employer/interviews', icon: <CalendarDays className="size-4" /> },
-      ],
-    });
-  }
-
-  /* --- Platform ---------------------------------------------------------- */
-  if (any(['analytics:read_platform', 'college:create', 'moderation:manage'])) {
-    sections.push({
-      title: 'Platform',
-      items: [
-        { label: 'Overview', href: '/dashboard/admin', icon: <Shield className="size-4" />, exact: true },
-        { label: 'Colleges', href: '/dashboard/admin/colleges', icon: <Building2 className="size-4" /> },
-        { label: 'Employers', href: '/dashboard/admin/employers', icon: <Briefcase className="size-4" /> },
-        { label: 'Audit log', href: '/dashboard/admin/audit', icon: <FileText className="size-4" /> },
       ],
     });
   }

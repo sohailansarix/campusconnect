@@ -16,24 +16,40 @@ import { amountSchema, csvArray, listQuerySchema, urlOrPathSchema } from './comm
  * before start, a deadline after the event begins, a six-month "workshop".
  * All three are rejected here rather than trusted downstream.
  */
-export const eventTimingSchema = z
-  .object({
-    startAt: z.coerce.date(),
-    endAt: z.coerce.date(),
-    registrationDeadline: z.coerce.date().optional(),
-  })
-  .refine((v) => v.endAt > v.startAt, {
-    message: 'End time must be after the start time',
-    path: ['endAt'],
-  })
-  .refine((v) => v.endAt.getTime() - v.startAt.getTime() <= 1000 * 60 * 60 * 24 * 14, {
-    message: 'An event cannot run longer than 14 days',
-    path: ['endAt'],
-  })
-  .refine((v) => !v.registrationDeadline || v.registrationDeadline <= v.startAt, {
-    message: 'Registration must close on or before the start time',
-    path: ['registrationDeadline'],
-  });
+const eventTimingFields = z.object({
+  startAt: z.coerce.date(),
+  endAt: z.coerce.date(),
+  registrationDeadline: z.coerce.date().optional(),
+});
+
+function addEventTimingIssues(
+  value: { startAt: Date; endAt: Date; registrationDeadline?: Date },
+  ctx: z.RefinementCtx,
+): void {
+  if (value.endAt <= value.startAt) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: 'End time must be after the start time',
+      path: ['endAt'],
+    });
+  }
+  if (value.endAt.getTime() - value.startAt.getTime() > 1000 * 60 * 60 * 24 * 14) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: 'An event cannot run longer than 14 days',
+      path: ['endAt'],
+    });
+  }
+  if (value.registrationDeadline && value.registrationDeadline > value.startAt) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: 'Registration must close on or before the start time',
+      path: ['registrationDeadline'],
+    });
+  }
+}
+
+export const eventTimingSchema = eventTimingFields.superRefine(addEventTimingIssues);
 
 const eventBaseSchema = z.object({
   title: z.string().trim().min(5, 'Title is too short').max(160),
@@ -71,8 +87,9 @@ const eventBaseSchema = z.object({
 });
 
 export const createEventSchema = eventBaseSchema
-  .merge(eventTimingSchema.innerType())
+  .merge(eventTimingFields)
   .superRefine((v, ctx) => {
+    addEventTimingIssues(v, ctx);
     if ((v.mode === 'OFFLINE' || v.mode === 'HYBRID') && !v.venue) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,

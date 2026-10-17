@@ -25,6 +25,19 @@
 
 import { PrismaClient, type Prisma } from '@prisma/client';
 import bcrypt from 'bcryptjs';
+import dotenv from 'dotenv';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+const seedDirectory = path.dirname(fileURLToPath(import.meta.url));
+const repositoryRoot = path.resolve(seedDirectory, '../../..');
+dotenv.config({ path: path.join(repositoryRoot, '.env'), override: false });
+dotenv.config({ path: path.join(repositoryRoot, 'apps/api/.env'), override: false });
+
+if (process.env.NODE_ENV === 'production') {
+  console.error('Refusing to run the demo seed in production; it truncates the database and inserts fictional data.');
+  process.exit(1);
+}
 
 const prisma = new PrismaClient();
 
@@ -169,7 +182,7 @@ const EVENT_TEMPLATES = [
   { title: 'Communication Skills Bootcamp', category: 'BOOTCAMP', mode: 'OFFLINE' },
   { title: 'Placement Preparation Drive', category: 'PLACEMENT_DRIVE', mode: 'OFFLINE' },
   { title: 'Design Thinking Workshop', category: 'WORKSHOP', mode: 'OFFLINE' },
-];
+] as const;
 
 const COURSES = [
   { title: 'Excel for Business: Zero to Advanced', level: 'BEGINNER', duration: 420, premium: false, skills: ['Advanced Excel'], category: 'Data & Analytics' },
@@ -693,7 +706,7 @@ async function main(): Promise<void> {
     { name: 'Finance and Investment Club', category: 'PROFESSIONAL', collegeId: xyz.id, description: 'Stock market simulations, financial modelling workshops and guest sessions from industry practitioners.' },
     { name: 'Sports Council', category: 'SPORTS', collegeId: sunrise.id, description: 'Inter-college tournaments and fitness programmes.' },
     { name: 'Business Analytics Club', category: 'PROFESSIONAL', collegeId: sunrise.id, description: 'Data literacy workshops and case competitions.' },
-  ];
+  ] as const;
 
   const xyzStudents = allStudents.filter((student) => student.collegeId === xyz.id);
   const sunriseStudents = allStudents.filter((student) => student.collegeId === sunrise.id);
@@ -1975,10 +1988,10 @@ async function main(): Promise<void> {
     let skillsPillar = 0;
     if (skills.length > 0) {
       const weighted = skills
-        .map((skill) => skill.score * (skill.isVerified ? 1 : 0.7))
-        .sort((a, b) => b - a)
+        .map((skill: { score: number; isVerified: boolean }) => skill.score * (skill.isVerified ? 1 : 0.7))
+        .sort((a: number, b: number) => b - a)
         .slice(0, 8);
-      const depth = weighted.reduce((sum, value) => sum + value, 0) / weighted.length;
+      const depth = weighted.reduce((sum: number, value: number) => sum + value, 0) / weighted.length;
       const breadth = Math.min(1, skills.length / 6 / (1 + Math.max(0, skills.length / 6 - 1)));
       skillsPillar = depth * (0.85 + 0.15 * breadth);
     }
@@ -1987,15 +2000,19 @@ async function main(): Promise<void> {
     let projectsPillar = 0;
     if (submissions.length > 0) {
       const contributions = submissions
-        .map((submission) => {
+        .map((submission: {
+          score: number | null;
+          project: { difficulty: number };
+          reviews: Array<{ totalScore: number }>;
+        }) => {
           const quality = (submission.reviews[0]?.totalScore ?? submission.score ?? 70) / 100;
           const difficultyMultiplier = 0.8 + (Math.min(5, Math.max(1, submission.project.difficulty)) - 1) * 0.1;
           return quality * difficultyMultiplier * 100;
         })
-        .sort((a, b) => b - a)
+        .sort((a: number, b: number) => b - a)
         .slice(0, 4);
 
-      const average = contributions.reduce((sum, value) => sum + value, 0) / contributions.length;
+      const average = contributions.reduce((sum: number, value: number) => sum + value, 0) / contributions.length;
       const breadth = Math.min(1, submissions.length / 4 / (1 + Math.max(0, submissions.length / 4 - 1)));
       projectsPillar = average * (0.9 + 0.1 * breadth);
     }
@@ -2004,16 +2021,18 @@ async function main(): Promise<void> {
     let internshipPillar = 0;
     if (internshipApps.length > 0) {
       const base = internshipApps.length === 1 ? 70 : internshipApps.length === 2 ? 85 : 95;
-      const longest = Math.max(...internshipApps.map((app) => app.internship?.durationMonths ?? 2));
+      const longest = Math.max(...internshipApps.map((app: { internship: { durationMonths: number | null } | null }) => app.internship?.durationMonths ?? 2));
       internshipPillar = Math.min(100, base + (longest >= 6 ? 5 : longest >= 3 ? 2 : 0));
     }
 
     // Interviews: 70% recent average, 30% best.
     let interviewPillar = 0;
-    const scores = interviews.map((interview) => interview.feedback[0]?.overallScore ?? 0).filter((s) => s > 0);
+    const scores = interviews
+      .map((interview: { feedback: Array<{ overallScore: number }> }) => interview.feedback[0]?.overallScore ?? 0)
+      .filter((score: number) => score > 0);
     if (scores.length > 0) {
       const recent = scores.slice(0, 3);
-      const average = recent.reduce((sum, value) => sum + value, 0) / recent.length;
+      const average = recent.reduce((sum: number, value: number) => sum + value, 0) / recent.length;
       interviewPillar = average * 0.7 + Math.max(...scores) * 0.3;
     }
 

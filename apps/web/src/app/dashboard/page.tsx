@@ -3,14 +3,14 @@
 import * as React from 'react';
 import Link from 'next/link';
 import {
-  ArrowRight, Award, BadgeCheck, Bell, CalendarDays, CheckCircle2, Clock, FileText,
+  ArrowRight, Award, Bell, CalendarDays, CheckCircle2, Clock, FileText, UserRound,
   GraduationCap, Target, TrendingUp, Users,
 } from 'lucide-react';
 import {
   Area, AreaChart, Bar, BarChart, CartesianGrid, Cell, ResponsiveContainer,
   Tooltip, XAxis, YAxis,
 } from 'recharts';
-import { get } from '@/lib/api';
+import { apiList, get } from '@/lib/api';
 import { useSession } from '@/lib/session';
 import { useAsync } from '@/hooks/use-api';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -20,7 +20,7 @@ import { StatCard, StatGrid } from '@/components/ui/stat-card';
 import { ProgressRow, SegmentedProgress } from '@/components/ui/progress';
 import { EmptyState, ErrorState, CardListSkeleton, StatsSkeleton } from '@/components/ui/empty-state';
 import { JourneyStepper, NextStepCard } from '@/components/journey/journey-stepper';
-import { cn, formatCompact, formatEventDate, formatRelative, readinessClasses } from '@/lib/utils';
+import { cn, formatCompact, formatEventDate, readinessClasses } from '@/lib/utils';
 
 /**
  * Student dashboard.
@@ -75,13 +75,6 @@ type Registration = {
   };
 };
 
-type Application = {
-  id: string;
-  status: string;
-  appliedAt: string;
-  job: { id: string; title: string; employer: { companyName: string } | null } | null;
-};
-
 export default function StudentDashboardPage() {
   const { user } = useSession();
 
@@ -93,13 +86,10 @@ export default function StudentDashboardPage() {
   const trend = useAsync<TrendResponse>(() => get<TrendResponse>('/passport/mine/trend?days=90'));
 
   const upcoming = useAsync<Registration[]>(async () => {
-    const result = await get<{ items: Registration[] }>('/events/mine/registrations?upcomingOnly=true&pageSize=4');
-    return (result as unknown as { items: Registration[] }).items ?? [];
-  });
-
-  const applications = useAsync<Application[]>(async () => {
-    const result = await get<{ items: Application[] }>('/applications/mine?pageSize=4');
-    return (result as unknown as { items: Application[] }).items ?? [];
+    const result = await apiList<Registration>('/events/mine/registrations', {
+      query: { upcomingOnly: true, pageSize: 4, sortBy: 'registeredAt', sortOrder: 'desc' },
+    });
+    return result.data;
   });
 
   const firstName = user?.fullName.split(' ')[0] ?? 'there';
@@ -124,9 +114,9 @@ export default function StudentDashboardPage() {
 
         <div className="flex gap-2">
           <Button asChild variant="outline" size="sm">
-            <Link href="/passport/rahul-sharma">
-              <BadgeCheck className="size-4" aria-hidden="true" />
-              View my passport
+            <Link href="/dashboard/settings">
+              <UserRound className="size-4" aria-hidden="true" />
+              Complete my profile
             </Link>
           </Button>
           <Button asChild size="sm">
@@ -199,7 +189,6 @@ export default function StudentDashboardPage() {
               hint="Mentor-reviewed"
               icon={<FileText />}
               tone="purple"
-              href="/dashboard/projects"
             />
             <StatCard
               label="Internships"
@@ -207,7 +196,6 @@ export default function StudentDashboardPage() {
               hint="Completed engagements"
               icon={<Target />}
               tone="teal"
-              href="/dashboard/internships"
             />
           </StatGrid>
         ) : null}
@@ -222,7 +210,7 @@ export default function StudentDashboardPage() {
       {/* --- Upcoming + applications -------------------------------------- */}
       <div className="grid gap-6 lg:grid-cols-2">
         <UpcomingEvents state={upcoming} />
-        <ApplicationsPanel state={applications} />
+        <ApplicationsPanel />
       </div>
 
       {/* --- Skills -------------------------------------------------------- */}
@@ -253,84 +241,23 @@ function NextStepSection({
 
   if (!passport) return null;
 
-  const suggestion = passport.readiness.suggestions[0];
-
-  // A student who has done everything the engine can suggest gets an encouragement
-  // rather than an empty space where the most important card should be.
-  if (!suggestion) {
-    return (
-      <NextStepCard
-        stepLabel="You are interview ready"
-        title="Apply to matched roles"
-        description="Your evidence covers every pillar. Put your passport in front of employers."
-        reason={`Readiness score ${passport.readiness.score}/100 with strong coverage across all four pillars.`}
-        actionLabel="See matched jobs"
-        actionHref="/dashboard/applications"
-      />
-    );
-  }
-
-  const action = ACTION_ROUTES[suggestion] ?? {
-    label: 'Continue',
-    href: '/dashboard/passport',
-  };
+  const hasAttended = passport.stats.eventsAttended > 0;
+  const suggestion = hasAttended ? 'Complete your student profile' : 'Attend a workshop or club event';
+  const action = hasAttended
+    ? { label: 'Update my profile', href: '/dashboard/settings', description: 'Add your education and career interests to keep your student record current.' }
+    : { label: 'Find an event', href: '/events', description: 'Campus participation is the first evidence in your career journey.' };
 
   return (
     <NextStepCard
       stepLabel="Your next step"
       title={suggestion}
       description={action.description}
-      reason={`Suggested because it has the largest effect on your readiness score, currently ${passport.readiness.score}/100.`}
+      reason={`Your current readiness score is ${passport.readiness.score}/100. Each event adds verified campus experience.`}
       actionLabel={action.label}
       actionHref={action.href}
     />
   );
 }
-
-/**
- * Maps a suggestion's text to a destination.
- *
- * The rule-based engine returns human-readable titles; matching on a keyword is
- * brittle but honest — when the AI driver lands, it should return a structured
- * `actionType` and this map goes away. TODO(AI): consume `suggestion.actionType`.
- */
-const ACTION_ROUTES: Record<string, { label: string; href: string; description: string }> = {
-  'Take a skill assessment': {
-    label: 'Start an assessment',
-    href: '/dashboard/skills',
-    description: 'Establish a baseline so the platform can measure real progress rather than guesses.',
-  },
-  'Get your top skills verified': {
-    label: 'Verify my skills',
-    href: '/dashboard/skills',
-    description: 'An assessment-backed skill counts in full toward your readiness score.',
-  },
-  'Build your first portfolio project for your target role': {
-    label: 'Browse project briefs',
-    href: '/dashboard/projects',
-    description: 'A mentor-reviewed project is the strongest single piece of evidence you can add.',
-  },
-  'Add another project to your portfolio': {
-    label: 'Find a project',
-    href: '/dashboard/projects',
-    description: 'Three approved projects is where employers stop asking for more evidence.',
-  },
-  'Apply to an internship': {
-    label: 'Browse internships',
-    href: '/dashboard/internships',
-    description: 'This is the heaviest-weighted pillar, and the one placement officers screen on first.',
-  },
-  'Book a mock interview': {
-    label: 'Book a mock interview',
-    href: '/dashboard/interviews',
-    description: 'Practise with a mentor, or use self-practice mode with the role question bank.',
-  },
-  'Attend a workshop or club event': {
-    label: 'Find an event',
-    href: '/events',
-    description: 'Campus participation is the fastest way to start building a track record.',
-  },
-};
 
 /* -------------------------------------------------------------------------- */
 /* Readiness                                                                  */
@@ -364,10 +291,10 @@ function ReadinessCard({
           compact
           icon={<TrendingUp />}
           title="No readiness score yet"
-          description="Take a skill assessment and attend an event to start building your score."
+          description="Attend an event and complete your student profile to begin building your record."
           action={
             <Button asChild size="sm">
-              <Link href="/dashboard/skills">Take an assessment</Link>
+              <Link href="/events">Browse events</Link>
             </Button>
           }
         />
@@ -432,8 +359,8 @@ function ReadinessCard({
         </p>
 
         <Button asChild variant="outline" size="sm" className="mt-4 w-full">
-          <Link href="/dashboard/passport">
-            See the full breakdown
+          <Link href="/dashboard/settings">
+            Update profile details
             <ArrowRight className="size-3.5" aria-hidden="true" />
           </Link>
         </Button>
@@ -633,60 +560,11 @@ function UpcomingEvents({ state }: { state: ReturnType<typeof useAsync<Registrat
 /* Applications                                                              */
 /* -------------------------------------------------------------------------- */
 
-function ApplicationsPanel({ state }: { state: ReturnType<typeof useAsync<Application[]>> }) {
+function ApplicationsPanel() {
   return (
     <Card>
-      <CardHeader className="flex flex-row items-center justify-between space-y-0">
-        <CardTitle>Active applications</CardTitle>
-        <Link href="/dashboard/applications" className="text-xs font-medium text-primary hover:underline">
-          View all
-        </Link>
-      </CardHeader>
-
-      <CardContent className="mt-4">
-        {state.loading ? (
-          <CardListSkeleton count={3} />
-        ) : state.error ? (
-          // A 404 here is expected in Phase 1: the applications module arrives in
-          // Phase 3. Rendered as an informative empty state rather than an error.
-          <EmptyState
-            compact
-            icon={<Target />}
-            title="Applications open in Phase 3"
-            description="Job and internship applications with the full tracker arrive with CareerConnect."
-          />
-        ) : state.data && state.data.length > 0 ? (
-          <ul className="space-y-3">
-            {state.data.map((application) => (
-              <li
-                key={application.id}
-                className="flex items-start justify-between gap-3 rounded-lg border border-border p-3"
-              >
-                <div className="min-w-0">
-                  <p className="truncate text-sm font-medium">{application.job?.title ?? 'Application'}</p>
-                  <p className="truncate text-xs text-muted-foreground">
-                    {application.job?.employer?.companyName ?? 'Company'} · applied{' '}
-                    {formatRelative(application.appliedAt)}
-                  </p>
-                </div>
-                <StatusBadge status={application.status} size="sm" />
-              </li>
-            ))}
-          </ul>
-        ) : (
-          <EmptyState
-            compact
-            icon={<Target />}
-            title="No applications yet"
-            description="Once you apply to a role, its status shows here so you always know where it stands."
-            action={
-              <Button asChild size="sm" variant="outline">
-                <Link href="/jobs">Browse jobs</Link>
-              </Button>
-            }
-          />
-        )}
-      </CardContent>
+      <CardHeader><CardTitle>CareerConnect</CardTitle></CardHeader>
+      <CardContent className="mt-4"><EmptyState compact icon={<Target />} title="Applications arrive in Phase 3" description="Job and internship applications with a status tracker will appear here in CareerConnect." /></CardContent>
     </Card>
   );
 }
@@ -727,12 +605,7 @@ function SkillsPanel({
             compact
             icon={<GraduationCap />}
             title="No skills recorded yet"
-            description="Take a short assessment to establish a baseline, or add skills you already have."
-            action={
-              <Button asChild size="sm">
-                <Link href="/dashboard/skills">Get started</Link>
-              </Button>
-            }
+            description="Skills assessments and verified skill profiles arrive in Phase 2."
           />
         </CardContent>
       </Card>
@@ -757,9 +630,6 @@ function SkillsPanel({
             {passport.skills.filter((skill) => skill.verified).length} of {passport.skills.length} verified
           </p>
         </div>
-        <Link href="/dashboard/skills" className="text-xs font-medium text-primary hover:underline">
-          All skills
-        </Link>
       </CardHeader>
 
       <CardContent className="mt-4">

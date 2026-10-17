@@ -395,6 +395,7 @@ model College {
   subscriptions    Subscription[]
   auditLogs        AuditLog[]
   skills           Skill[]
+  courses          Course[]
 
   @@index([isActive, deletedAt])
   @@index([slug])
@@ -501,6 +502,7 @@ model User {
   verificationTokens  VerificationToken[]
   notifications       Notification[]
   notificationPreferences NotificationPreference[]
+  notificationSetting NotificationSetting?
   clubMemberships     ClubMembership[]
   ledClubs            Club[]            @relation("ClubPresident")
   organizedEvents     Event[]           @relation("EventOrganizer")
@@ -516,7 +518,7 @@ model User {
   assessments         AssessmentAttempt[]
   coursesAuthored     Course[]          @relation("CourseAuthor")
   enrollments         Enrollment[]
-  projects            Project[]
+  projects            Project[]          @relation("ProjectCreator")
   projectSubmissions  ProjectSubmission[]
   reviewsGiven        Review[]          @relation("ReviewReviewer")
   applications        Application[]
@@ -532,6 +534,7 @@ model User {
   /// immediate re-registration from resurrecting a suspended account.
   @@index([collegeId, role, status])
   @@index([collegeId, departmentId])
+  @@index([role, consentToEmployerSearch, status])
   @@index([role, deletedAt])
   @@index([createdAt])
   @@map("users")
@@ -653,7 +656,7 @@ model StudentProfile {
 
   @@index([collegeId, departmentId, graduationYear])
   @@index([collegeId, readinessScore])
-  @@index([passportVisibility, consentToEmployerSearch])
+  @@index([collegeId, passportVisibility])
   @@map("student_profiles")
 }
 
@@ -664,7 +667,7 @@ model ReadinessSnapshot {
   studentProfileId String
   studentProfile   StudentProfile @relation(fields: [studentProfileId], references: [id], onDelete: Cascade)
 
-  capturedOn Date
+  capturedOn DateTime @db.Date
   score      Int
   skills     Int
   projects   Int
@@ -688,6 +691,7 @@ model PassportView {
 
   viewerUserId String?
   viewerEmployerId String?
+  viewerEmployer EmployerProfile? @relation(fields: [viewerEmployerId], references: [id], onDelete: SetNull)
   viewerLabel  String?
 
   createdAt DateTime @default(now())
@@ -727,7 +731,6 @@ model EmployerProfile {
 
   jobs              Job[]
   internships       Internship[]
-  interviewSlots    InterviewSlot[]
   subscriptions     Subscription[]
   passportViews     PassportView[]
 
@@ -1069,6 +1072,7 @@ model Certificate {
   /// Phase 2: `course Course? @relation(...)`. Declared as a plain column for
   /// now so the Phase 1 migration does not depend on a Phase 2 table.
   registrationId String? @unique
+  registration   EventRegistration? @relation(fields: [registrationId], references: [id], onDelete: SetNull)
 
   /// "Winner", "Runner-up", "Participant", … Null for non-competitive events.
   position String?
@@ -1621,6 +1625,7 @@ model Project {
   thumbnailUrl String?
 
   createdById String?
+  createdBy User? @relation("ProjectCreator", fields: [createdById], references: [id], onDelete: SetNull)
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
   deletedAt DateTime?

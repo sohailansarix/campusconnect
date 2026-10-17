@@ -15,8 +15,8 @@ import { generateCertificateId, isValidCertificateIdFormat, sha256 } from '../..
 import { generateCertificatePdf } from '../../utils/pdf.js';
 import { generateQrPngBuffer } from '../../utils/qr.js';
 import { auditAction, auditBulk, auditCreate, type AuditContext } from '../../utils/audit.js';
-import { notifyMany } from '../notifications/notification.service.js';
-import * as templates from '../mailer/templates.js';
+import { notifyMany } from '../../services/notifications/notification.service.js';
+import * as templates from '../../services/mailer/templates.js';
 import { storeCertificatePdf, certificatePdfUrl } from '../../services/storage/index.js';
 
 /**

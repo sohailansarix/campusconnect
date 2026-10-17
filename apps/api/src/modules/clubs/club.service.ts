@@ -14,7 +14,7 @@ import { buildOrderBy, buildSearchFilter, normalisePagination, paginated } from 
 import { sanitizeMultilineText, sanitizeText } from '../../utils/sanitize.js';
 import { uniqueSlug } from '../../utils/ids.js';
 import { auditCreate, auditUpdate, type AuditContext } from '../../utils/audit.js';
-import { notify } from '../notifications/notification.service.js';
+import { notify } from '../../services/notifications/notification.service.js';
 
 /**
  * Club service.

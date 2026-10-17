@@ -22,6 +22,9 @@ export const ROLES = [
 
 export type Role = (typeof ROLES)[number];
 
+/** Roles offered by public signup; privileged roles are invitation-only. */
+export const SELF_SIGNUP_ROLES = ['STUDENT'] as const satisfies readonly Role[];
+
 export const ROLE_LABELS: Record<Role, string> = {
   STUDENT: 'Student',
   CLUB_LEAD: 'Club Lead',

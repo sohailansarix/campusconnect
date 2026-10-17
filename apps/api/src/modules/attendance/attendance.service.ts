@@ -20,7 +20,7 @@ import {
   passTokenFingerprint,
   verifyPassToken,
 } from '../../utils/qr.js';
-import { notify } from '../notifications/notification.service.js';
+import { notify } from '../../services/notifications/notification.service.js';
 
 /**
  * Attendance service.

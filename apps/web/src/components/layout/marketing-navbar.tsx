@@ -33,11 +33,14 @@ export function MarketingNavbar() {
   const { user, signOut } = useSession();
   const { theme, setTheme } = useTheme();
 
+  const [themeReady, setThemeReady] = React.useState(false);
   const [mobileOpen, setMobileOpen] = React.useState(false);
   const [searchOpen, setSearchOpen] = React.useState(false);
   const [query, setQuery] = React.useState('');
   const [scrolled, setScrolled] = React.useState(false);
   const searchInputRef = React.useRef<HTMLInputElement>(null);
+
+  React.useEffect(() => setThemeReady(true), []);
 
   // Close the mobile menu whenever the route changes.
   React.useEffect(() => {
@@ -143,7 +146,7 @@ export function MarketingNavbar() {
             type="button"
             onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
             className="flex size-10 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-            aria-label={`Switch to ${theme === 'dark' ? 'light' : 'dark'} mode`}
+            aria-label={themeReady ? `Switch to ${theme === 'dark' ? 'light' : 'dark'} mode` : 'Toggle color theme'}
           >
             <Sun className="size-4 dark:hidden" aria-hidden="true" />
             <Moon className="hidden size-4 dark:block" aria-hidden="true" />

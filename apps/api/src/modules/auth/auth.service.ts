@@ -26,8 +26,8 @@ import {
 } from '../../utils/jwt.js';
 import { generateOpaqueToken, generateUsername, sha256, uniqueSlug } from '../../utils/ids.js';
 import { sanitizeText } from '../../utils/sanitize.js';
-import { notify, seedDefaultPreferences } from '../notifications/notification.service.js';
-import * as templates from '../mailer/templates.js';
+import { notify, seedDefaultPreferences } from '../../services/notifications/notification.service.js';
+import * as templates from '../../services/mailer/templates.js';
 
 /**
  * Authentication service.

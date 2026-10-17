@@ -124,6 +124,7 @@ export const inviteUserSchema = z.object({
 export const verifyEmailSchema = z.object({ token: z.string().min(20) });
 
 export const AUTH_SCHEMAS = {
+  password: passwordSchema,
   register: registerSchema,
   login: loginSchema,
   refresh: refreshTokenSchema,
@@ -131,5 +132,6 @@ export const AUTH_SCHEMAS = {
   forgotPassword: forgotPasswordSchema,
   resetPassword: resetPasswordSchema,
   changePassword: changePasswordSchema,
+  verifyEmail: verifyEmailSchema,
   invite: inviteUserSchema,
 } as const;

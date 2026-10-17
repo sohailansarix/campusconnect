@@ -272,13 +272,6 @@ export function roleHasAnyPermission(role: Role, required: readonly Permission[]
   return required.some((p) => roleHasPermission(role, p));
 }
 
-/**
- * Roles visible to the public signup form. College admins, employers and
- * faculty are provisioned by an invitation from an existing administrator
- * rather than self-service, so they are excluded here.
- */
-export const SELF_SIGNUP_ROLES: Role[] = ['STUDENT'];
-
 /** Which dashboard route a role lands on after login. */
 export const ROLE_HOME: Record<Role, string> = {
   STUDENT: '/dashboard',

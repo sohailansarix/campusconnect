@@ -1,5 +1,6 @@
 import * as React from 'react';
 import { cva, type VariantProps } from 'class-variance-authority';
+import { Slot } from '@radix-ui/react-slot';
 import { cn } from '@/lib/utils';
 
 /**
@@ -47,39 +48,46 @@ export interface ButtonProps
 }
 
 const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
-  ({ className, variant, size, loading, disabled, children, ...props }, ref) => (
-    <button
-      ref={ref}
-      className={cn(buttonVariants({ variant, size, className }))}
-      // A loading button must also be non-submittable, or a double click issues
-      // two requests even though it looks disabled.
-      disabled={disabled || loading}
-      aria-busy={loading || undefined}
-      {...props}
-    >
-      {loading ? (
-        <>
-          <svg
-            className="size-4 animate-spin"
-            xmlns="http://www.w3.org/2000/svg"
-            fill="none"
-            viewBox="0 0 24 24"
-            aria-hidden="true"
-          >
-            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-            <path
-              className="opacity-75"
-              fill="currentColor"
-              d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
-            />
-          </svg>
-          {children}
-        </>
-      ) : (
-        children
-      )}
-    </button>
-  ),
+  ({ className, variant, size, loading, disabled, children, asChild = false, ...props }, ref) => {
+    const Component = asChild ? Slot : 'button';
+    const isDisabled = disabled || loading;
+
+    return (
+      <Component
+        ref={ref}
+        className={cn(buttonVariants({ variant, size, className }))}
+        aria-busy={loading || undefined}
+        {...props}
+        {...(asChild
+          ? isDisabled
+            ? { 'aria-disabled': true, tabIndex: -1 }
+            : {}
+          : { disabled: isDisabled })}
+      >
+        {loading ? (
+          <>
+            <svg
+              className="size-4 animate-spin"
+              xmlns="http://www.w3.org/2000/svg"
+              fill="none"
+              viewBox="0 0 24 24"
+              aria-hidden="true"
+            >
+              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+              <path
+                className="opacity-75"
+                fill="currentColor"
+                d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
+              />
+            </svg>
+            {children}
+          </>
+        ) : (
+          children
+        )}
+      </Component>
+    );
+  },
 );
 Button.displayName = 'Button';
 

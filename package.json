@@ -15,6 +15,7 @@
     "db:up": "docker compose up -d postgres",
     "db:down": "docker compose down",
     "db:migrate": "npm run db:migrate --workspace=@campusconnect/api",
+    "db:migrate:deploy": "npm run db:migrate:deploy --workspace=@campusconnect/api",
     "db:push": "npm run db:push --workspace=@campusconnect/api",
     "db:seed": "npm run db:seed --workspace=@campusconnect/api",
     "db:studio": "npm run db:studio --workspace=@campusconnect/api",
