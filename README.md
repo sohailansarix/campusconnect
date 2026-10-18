@@ -2,6 +2,8 @@
 
 CampusConnect connects campus participation with career readiness in one evidence based student journey. Phase 1 covers authentication and role based access, event discovery and registration, QR event passes and attendance, certificates and public verification, college analytics, and in app/email notifications. Phase 2 adds verified skill assessments, career roadmaps, courses and lesson progress, mentor reviewed projects, internship and industry project applications, a resume builder, and a shareable Career Passport.
 
+Track phase completion and remaining work in [TODO.md](./TODO.md).
+
 ## Architecture
 
 - `apps/web` is a responsive Next.js App Router frontend.

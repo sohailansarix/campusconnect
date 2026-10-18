@@ -402,7 +402,7 @@ function EventListCard({ event }: { event: EventCard }) {
  * Honest limitation: this groups what the list query returned rather than fetching
  * a whole month, so a month with more events than `pageSize` shows a partial view.
  * The API's `/events/calendar` endpoint exists for the full-month case and is used
- * by the dashboard's month widget. TODO(Phase 2): switch this view to it.
+ * by the dashboard's month widget. TODO(Phase 1 carryover): use it for this view.
  */
 function CalendarView({ events }: { events: EventCard[] }) {
   const grouped = React.useMemo(() => {

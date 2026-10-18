@@ -19,8 +19,33 @@
 
 import type { ApiErrorBody, ApiErrorCode, PaginationMeta } from '@campusconnect/shared';
 
-export const API_URL =
-  process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000/api/v1';
+const API_PATH = '/api/v1';
+
+/**
+ * Browser requests use the shared public route, while server-side Next.js
+ * requests use Vercel's service binding. The binding is read only when
+ * a function handles a request, never while Next.js builds the app.
+ */
+function getApiBaseUrl(): string {
+  if (typeof window === 'undefined') {
+    const apiServiceUrl = process.env.API_SERVICE_URL;
+    if (apiServiceUrl) {
+      return new URL(`${API_PATH}/`, `${apiServiceUrl.replace(/\/+$/, '')}/`)
+        .toString()
+        .replace(/\/$/, '');
+    }
+
+    return process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000/api/v1';
+  }
+
+  // Keep the existing direct API URL for `next dev`. In production, the
+  // browser and API share the Vercel domain and `/api/*` is routed to Express.
+  if (process.env.NODE_ENV === 'development') {
+    return process.env.NEXT_PUBLIC_API_URL ?? API_PATH;
+  }
+
+  return API_PATH;
+}
 
 /* -------------------------------------------------------------------------- */
 /* Errors                                                                     */
@@ -117,11 +142,14 @@ export function getAccessToken(): string | null {
 function buildUrl(path: string, query?: RequestOptions['query']): string {
   // An absolute URL is passed through, so the passport page can fetch a
   // share-target without string surgery.
-  const base = path.startsWith('http') ? path : `${API_URL}${path.startsWith('/') ? path : `/${path}`}`;
+  const base = path.startsWith('http')
+    ? path
+    : `${getApiBaseUrl()}${path.startsWith('/') ? path : `/${path}`}`;
 
   if (!query) return base;
 
-  const url = new URL(base);
+  const isRelative = base.startsWith('/');
+  const url = new URL(base, 'https://campusconnect.invalid');
   for (const [key, value] of Object.entries(query)) {
     if (value === undefined || value === null || value === '') continue;
     if (Array.isArray(value)) {
@@ -130,7 +158,7 @@ function buildUrl(path: string, query?: RequestOptions['query']): string {
       url.searchParams.set(key, String(value));
     }
   }
-  return url.toString();
+  return isRelative ? `${url.pathname}${url.search}` : url.toString();
 }
 
 /* -------------------------------------------------------------------------- */
@@ -152,7 +180,7 @@ async function refreshAccessToken(): Promise<boolean> {
 
   refreshPromise = (async () => {
     try {
-      const response = await fetch(`${API_URL}/auth/refresh`, {
+      const response = await fetch(`${getApiBaseUrl()}/auth/refresh`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         // Sends the httpOnly refresh cookie. Required for the whole scheme.
@@ -340,7 +368,7 @@ export async function uploadFile(
   const headers = new Headers();
   if (accessToken) headers.set('Authorization', `Bearer ${accessToken}`);
 
-  const response = await fetch(`${API_URL}/uploads`, {
+  const response = await fetch(`${getApiBaseUrl()}/uploads`, {
     method: 'POST',
     headers,
     credentials: 'include',

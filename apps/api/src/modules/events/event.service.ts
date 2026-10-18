@@ -221,10 +221,10 @@ export async function list(
 
   /**
    * `available=true` needs a computed comparison (registrations < capacity), which
-   * Prisma cannot express in a `where`. It is applied after the page is fetched,
-   * and the count is adjusted — imperfect, but `available` is a convenience filter
-   * rather than the primary browse path. TODO(Phase 2): move to a raw query with
-   * `registration_count < capacity OR capacity = 0`.
+   * Prisma cannot express in a `where`. It is currently applied after the page is
+   * fetched, which can underfill results and leave pagination totals inaccurate.
+   * TODO(Phase 1 carryover): filter and count available events before pagination
+   * with `registration_count < capacity OR capacity = 0`.
    */
   const orderBy = buildOrderBy(
     filters.sortBy,

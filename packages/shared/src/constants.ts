@@ -239,7 +239,7 @@ export const NOTIFICATION_CHANNELS = ['IN_APP', 'EMAIL', 'PUSH', 'WHATSAPP', 'SM
 export type NotificationChannel = (typeof NOTIFICATION_CHANNELS)[number];
 
 /* -------------------------------------------------------------------------- */
-/* Skills & learning (Phase 2 models, constants declared now for the schema)   */
+/* Skills & learning (Phase 2 feature constants and types)                    */
 /* -------------------------------------------------------------------------- */
 
 export const PROFICIENCY_LEVELS = ['BEGINNER', 'INTERMEDIATE', 'ADVANCED', 'EXPERT'] as const;

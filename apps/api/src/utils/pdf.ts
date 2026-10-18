@@ -8,8 +8,8 @@
  * Fonts: the built-in Helvetica covers Latin-1. Names in Devanagari or other
  * non-Latin scripts would render as blanks, so `resolveFont` checks the string
  * and falls back to a bundled Unicode TTF when one is present, logging a warning
- * when it is not. TODO(Phase 2): bundle Noto Sans + Noto Sans Devanagari and set
- * them as the default pair.
+ * when it is not. TODO(Phase 4 polish): bundle Noto Sans + Noto Sans Devanagari
+ * and set them as the default pair.
  */
 
 import PDFDocument from 'pdfkit';

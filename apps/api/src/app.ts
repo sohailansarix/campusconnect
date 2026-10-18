@@ -1,4 +1,4 @@
-import express, { type Express } from 'express';
+import express, { type Express, type Request } from 'express';
 import helmet from 'helmet';
 import cors from 'cors';
 import compression from 'compression';
@@ -12,6 +12,30 @@ import { globalLimiter } from './middleware/rateLimit.js';
 import { requireJsonContentType } from './middleware/validate.js';
 import { logger } from './config/logger.js';
 import { mountDocs } from './config/swagger.js';
+
+/**
+ * Vercel routes the public web app and API through the same origin. Treat a
+ * request whose Origin matches the forwarded public host as same-origin before
+ * applying the cross-origin allowlist.
+ */
+function isSameOriginRequest(req: Request, origin: string): boolean {
+  try {
+    const parsedOrigin = new URL(origin);
+    const host =
+      req.get('x-forwarded-host')?.split(',')[0]?.trim() ?? req.get('host');
+    const protocol =
+      req.get('x-forwarded-proto')?.split(',')[0]?.trim() ?? req.protocol;
+
+    if (!host) return false;
+
+    return (
+      parsedOrigin.host.toLowerCase() === host.toLowerCase() &&
+      parsedOrigin.protocol === `${protocol}:`
+    );
+  } catch {
+    return false;
+  }
+}
 
 /**
  * Express application assembly.
@@ -64,7 +88,8 @@ export function createApp(): Express {
               }),
         },
       },
-      // The API is consumed by a separate origin, so CORP must not be same-origin.
+      // The API may be consumed through the shared app origin or a separate
+      // origin, so CORP must not be same-origin.
       crossOriginResourcePolicy: { policy: 'cross-origin' },
       crossOriginEmbedderPolicy: false,
       referrerPolicy: { policy: 'no-referrer' },
@@ -76,32 +101,36 @@ export function createApp(): Express {
   /* CORS                                                                   */
   /* ---------------------------------------------------------------------- */
 
-  app.use(
-    cors({
-      origin(origin, callback) {
-        // Same-origin and server-to-server requests have no Origin header.
-        if (!origin) return callback(null, true);
+  const corsMiddleware = cors({
+    origin(origin, callback) {
+      // Requests without Origin are server-to-server or do not need CORS.
+      if (!origin) return callback(null, true);
 
-        if (env.CORS_ORIGINS.includes(origin)) return callback(null, true);
+      if (env.CORS_ORIGINS.includes(origin)) return callback(null, true);
 
-        // A local network address in development, so testing on a phone against a
-        // laptop's LAN IP works without editing .env.
-        if (env.isDevelopment && /^https?:\/\/(\d{1,3}\.){3}\d{1,3}(:\d+)?$/.test(origin)) {
-          return callback(null, true);
-        }
+      // A local network address in development, so testing on a phone against a
+      // laptop's LAN IP works without editing .env.
+      if (env.isDevelopment && /^https?:\/\/(\d{1,3}\.){3}\d{1,3}(:\d+)?$/.test(origin)) {
+        return callback(null, true);
+      }
 
-        logger.warn('Blocked cross-origin request', { origin });
-        return callback(new Error('Not allowed by CORS'));
-      },
-      // Required for the httpOnly refresh cookie to be sent by the web app.
-      credentials: true,
-      methods: ['GET', 'POST', 'PATCH', 'PUT', 'DELETE', 'OPTIONS'],
-      allowedHeaders: ['Content-Type', 'Authorization', 'X-Request-Id'],
-      // So the client can read the correlation id off a response.
-      exposedHeaders: ['X-Request-Id'],
-      maxAge: 86_400,
-    }),
-  );
+      logger.warn('Blocked cross-origin request', { origin });
+      return callback(new Error('Not allowed by CORS'));
+    },
+    // Required for the httpOnly refresh cookie to be sent by the web app.
+    credentials: true,
+    methods: ['GET', 'POST', 'PATCH', 'PUT', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Request-Id'],
+    // So the client can read the correlation id off a response.
+    exposedHeaders: ['X-Request-Id'],
+    maxAge: 86_400,
+  });
+
+  app.use((req, res, next) => {
+    const origin = req.get('origin');
+    if (origin && isSameOriginRequest(req, origin)) return next();
+    return corsMiddleware(req, res, next);
+  });
 
   /* ---------------------------------------------------------------------- */
   /* Parsing                                                                */

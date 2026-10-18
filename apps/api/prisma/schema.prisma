@@ -25,10 +25,9 @@
 //    no `permissions` JSON column that could be edited at runtime and diverge
 //    from what the middleware enforces.
 //
-// Phase 1 tables are implemented end-to-end. Phase 2/3 tables (skills, courses,
-// projects, internships, jobs, applications, interviews, payments) are defined
-// now so the schema is stable and a single migration covers the roadmap; their
-// routes and services arrive in later phases as `TODO(Phase N)` markers note.
+// Phase 1 and Phase 2 models have API modules. Later CareerConnect models (jobs,
+// employer hiring, interviews and payments) remain in the schema so the database
+// shape is stable while those feature routes are staged by the build plan.
 // =============================================================================
 
 generator client {
@@ -626,7 +625,7 @@ model StudentProfile {
   githubUrl      String?
   portfolioUrl   String?
 
-  /// Free-text career interests; normalised into Skill rows in Phase 2.
+  /// Career-track labels from interest assessments and profile preferences.
   careerInterests String[]
 
   passportVisibility PassportVisibility @default(EMPLOYERS_ONLY)
@@ -1252,7 +1251,7 @@ model NotificationSetting {
 }
 
 // =============================================================================
-// SKILLS  (Phase 2 — schema defined now, routes later)
+// SKILLS  (Phase 2)
 // =============================================================================
 
 model SkillCategory {
@@ -1708,7 +1707,7 @@ model Review {
 }
 
 // =============================================================================
-// INTERNSHIPS & JOBS  (Phase 2 / Phase 3)
+// INTERNSHIPS (Phase 2) & JOBS (Phase 3)
 // =============================================================================
 
 model Internship {
