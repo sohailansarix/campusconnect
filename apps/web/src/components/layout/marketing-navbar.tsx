@@ -86,10 +86,10 @@ export function MarketingNavbar() {
         scrolled ? 'border-border shadow-soft' : 'border-transparent',
       )}
     >
-      <div className="container flex h-16 items-center gap-3">
-        <Link href="/" className="flex shrink-0 items-center gap-2" aria-label={`${siteConfig.name} home`}>
-          <Logo className="h-7 w-7" />
-          <span className="text-[17px] font-bold tracking-tight">
+      <div className="container flex h-16 items-center gap-2 sm:gap-3">
+        <Link href="/" className="flex shrink-0 items-center gap-1.5 sm:gap-2" aria-label={`${siteConfig.name} home`}>
+          <Logo className="h-6 w-6 sm:h-7 sm:w-7" />
+          <span className="text-[15px] font-bold tracking-tight sm:text-[17px]">
             Campus<span className="text-primary">Connect</span>
           </span>
         </Link>
@@ -145,7 +145,7 @@ export function MarketingNavbar() {
           <button
             type="button"
             onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
-            className="flex size-10 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+            className="hidden size-10 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-accent hover:text-foreground sm:flex"
             aria-label={themeReady ? `Switch to ${theme === 'dark' ? 'light' : 'dark'} mode` : 'Toggle color theme'}
           >
             <Sun className="size-4 dark:hidden" aria-hidden="true" />
@@ -159,7 +159,7 @@ export function MarketingNavbar() {
               <Button asChild variant="ghost" size="sm" className="hidden sm:inline-flex">
                 <Link href="/login">Login</Link>
               </Button>
-              <Button asChild size="sm">
+              <Button asChild size="sm" className="px-2.5 sm:px-3">
                 <Link href="/register">Get Started</Link>
               </Button>
             </>
@@ -204,6 +204,19 @@ export function MarketingNavbar() {
             ))}
 
             <div className="cc-divider my-3" />
+
+            <button
+              type="button"
+              onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+              className="flex w-full items-center gap-2 rounded-lg px-3 py-2.5 text-left text-sm font-medium text-muted-foreground hover:bg-accent hover:text-foreground"
+              aria-label={themeReady ? `Switch to ${theme === 'dark' ? 'light' : 'dark'} mode` : 'Toggle color theme'}
+            >
+              <span className="flex size-8 items-center justify-center rounded-lg bg-muted">
+                <Sun className="size-4 dark:hidden" aria-hidden="true" />
+                <Moon className="hidden size-4 dark:block" aria-hidden="true" />
+              </span>
+              {themeReady ? `Switch to ${theme === 'dark' ? 'light' : 'dark'} mode` : 'Toggle color theme'}
+            </button>
 
             {user ? (
               <>
