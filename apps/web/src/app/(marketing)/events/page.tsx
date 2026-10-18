@@ -493,7 +493,7 @@ function CalendarView({ events }: { events: EventCard[] }) {
 /* Pagination                                                                 */
 /* -------------------------------------------------------------------------- */
 
-export function Pagination({
+function Pagination({
   meta,
   onNext,
   onPrevious,

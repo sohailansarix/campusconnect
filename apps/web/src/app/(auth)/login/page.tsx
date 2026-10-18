@@ -17,6 +17,14 @@ import { ApiError } from '@/lib/api';
 import { ROLE_HOME } from '@campusconnect/shared';
 
 export default function LoginPage() {
+  return (
+    <React.Suspense fallback={<LoginPageFallback />}>
+      <LoginPageContent />
+    </React.Suspense>
+  );
+}
+
+function LoginPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { signIn } = useSession();
@@ -182,6 +190,27 @@ export default function LoginPage() {
           {/* Demo credentials, so a reviewer can sign in without seeding their own data. */}
           <DemoCredentials />
         </div>
+      </main>
+    </div>
+  );
+}
+
+function LoginPageFallback() {
+  return (
+    <div className="flex min-h-screen flex-col" aria-busy="true">
+      <header className="container flex h-16 items-center">
+        <Link href="/" className="flex items-center gap-2">
+          <Logo className="h-7 w-7" />
+          <span className="text-[17px] font-bold tracking-tight">
+            Campus<span className="text-primary">Connect</span>
+          </span>
+        </Link>
+      </header>
+      <main className="flex flex-1 items-center justify-center px-4 py-8">
+        <Card padding="lg" variant="elevated" className="w-full max-w-md">
+          <p className="text-sm text-muted-foreground">Loading sign-in form…</p>
+          <div className="mt-5 h-40 animate-pulse rounded-lg bg-muted" />
+        </Card>
       </main>
     </div>
   );
