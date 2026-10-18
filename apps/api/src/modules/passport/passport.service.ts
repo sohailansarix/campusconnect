@@ -397,6 +397,9 @@ export async function buildPassport(
       band: readiness.band,
       breakdown: readiness.breakdown,
       suggestions: readiness.suggestions.map((suggestion) => suggestion.title),
+      nextSteps: isOwner
+        ? readiness.suggestions.filter((suggestion) => suggestion.actionType !== 'BOOK_MOCK')
+        : undefined,
       calculatedAt: readiness.calculatedAt,
     },
     stats: {

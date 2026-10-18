@@ -41,6 +41,7 @@ export type CertificatePdfInput = {
 };
 
 export type ResumePdfInput = {
+  templateId?: 'classic' | 'modern' | 'minimal' | 'academic';
   fullName: string;
   headline?: string | null;
   email: string;
@@ -289,6 +290,9 @@ export async function generateCertificatePdf(input: CertificatePdfInput): Promis
  * the applicant tracking systems most Indian employers use.
  */
 export async function generateResumePdf(input: ResumePdfInput): Promise<Buffer> {
+  const template = input.templateId ?? 'classic';
+  const accentByTemplate = { classic: '#2563EB', modern: '#0D9488', minimal: '#475569', academic: '#7C3AED' };
+  const accent = accentByTemplate[template];
   const doc = new PDFDocument({
     ...A4_PORTRAIT,
     info: { Title: `${input.fullName} — Resume`, Author: input.fullName, CreationDate: new Date() },
@@ -301,17 +305,25 @@ export async function generateResumePdf(input: ResumePdfInput): Promise<Buffer> 
 
   const left = A4_PORTRAIT.margin;
   const width = doc.page.width - left * 2;
-  const accent = '#2563EB';
+  if (template === 'modern') doc.rect(0, 0, doc.page.width, 8).fill(accent);
+  if (template === 'academic') {
+    doc.moveTo(left, left - 12).lineTo(left + width, left - 12).lineWidth(1.5).strokeColor(accent).stroke();
+  }
 
   const sectionHeading = (label: string) => {
-    doc.moveDown(0.9);
-    doc.font(fonts.bold).fontSize(10.5).fillColor(accent).text(label.toUpperCase(), left, doc.y, {
+    doc.moveDown(template === 'minimal' ? 0.65 : 0.9);
+    const headingColor = template === 'minimal' ? '#334155' : accent;
+    doc.font(fonts.bold).fontSize(template === 'minimal' ? 9.5 : 10.5).fillColor(headingColor).text(label.toUpperCase(), left, doc.y, {
       width,
-      characterSpacing: 1,
+      characterSpacing: template === 'academic' ? 1.5 : template === 'minimal' ? 0 : 1,
     });
-    const y = doc.y + 3;
-    doc.moveTo(left, y).lineTo(left + width, y).lineWidth(0.75).strokeColor(accent).stroke();
-    doc.moveDown(0.4);
+    if (template !== 'minimal') {
+      const y = doc.y + 3;
+      doc.moveTo(left, y).lineTo(left + width, y).lineWidth(template === 'academic' ? 1 : 0.75).strokeColor(accent).stroke();
+      doc.moveDown(0.4);
+    } else {
+      doc.moveDown(0.25);
+    }
   };
 
   const bullets = (items: string[]) => {
@@ -323,10 +335,12 @@ export async function generateResumePdf(input: ResumePdfInput): Promise<Buffer> 
   };
 
   // --- Header ---------------------------------------------------------------
-  doc.font(fonts.bold).fontSize(20).fillColor('#0F172A').text(input.fullName, left, left, { width });
+  const headerAlign = template === 'academic' ? 'center' : 'left';
+  const nameColor = template === 'modern' ? '#0F766E' : '#0F172A';
+  doc.font(fonts.bold).fontSize(template === 'academic' ? 22 : 20).fillColor(nameColor).text(input.fullName, left, left, { width, align: headerAlign });
   if (input.headline) {
     doc.moveDown(0.15);
-    doc.font(fonts.regular).fontSize(10.5).fillColor('#475569').text(input.headline, { width });
+    doc.font(fonts.regular).fontSize(10.5).fillColor('#475569').text(input.headline, { width, align: headerAlign });
   }
 
   const contactParts = [
@@ -339,7 +353,7 @@ export async function generateResumePdf(input: ResumePdfInput): Promise<Buffer> 
   ].filter((v): v is string => Boolean(v));
 
   doc.moveDown(0.25);
-  doc.font(fonts.regular).fontSize(9).fillColor('#64748B').text(contactParts.join('  ·  '), { width });
+  doc.font(fonts.regular).fontSize(9).fillColor('#64748B').text(contactParts.join('  ·  '), { width, align: headerAlign });
 
   // --- Sections -------------------------------------------------------------
   if (input.summary) {

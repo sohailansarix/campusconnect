@@ -284,7 +284,7 @@ export default function EventsPage() {
 /* Event card                                                                 */
 /* -------------------------------------------------------------------------- */
 
-export function EventListCard({ event }: { event: EventCard }) {
+function EventListCard({ event }: { event: EventCard }) {
   const seatsRemaining = event.capacity === 0 ? null : Math.max(0, event.capacity - event.registrationCount);
   const isFull = seatsRemaining === 0;
   const started = new Date(event.startAt) <= new Date();

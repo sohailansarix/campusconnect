@@ -12,6 +12,11 @@ import { notificationRouter } from './notifications/notification.routes.js';
 import { analyticsRouter } from './analytics/analytics.routes.js';
 import { uploadRouter } from './uploads/upload.routes.js';
 import { passportRouter } from './passport/passport.routes.js';
+import { skillsRouter } from './skills/skills.routes.js';
+import { courseRouter, roadmapRouter } from './learning/learning.routes.js';
+import { projectRouter } from './projects/projects.routes.js';
+import { internshipRouter } from './internships/internships.routes.js';
+import { resumeRouter } from './resumes/resumes.routes.js';
 import { databaseHealth } from '../config/prisma.js';
 import { env } from '../config/env.js';
 
@@ -79,6 +84,12 @@ apiRouter.use('/notifications', notificationRouter);
 apiRouter.use('/analytics', analyticsRouter);
 apiRouter.use('/uploads', uploadRouter);
 apiRouter.use('/passport', passportRouter);
+apiRouter.use('/skills', skillsRouter);
+apiRouter.use('/courses', courseRouter);
+apiRouter.use('/roadmaps', roadmapRouter);
+apiRouter.use('/projects', projectRouter);
+apiRouter.use('/internships', internshipRouter);
+apiRouter.use('/resumes', resumeRouter);
 
 /**
  * Feedback is mounted last and at the root because its routes are event-scoped
@@ -107,6 +118,12 @@ apiRouter.get('/_routes', (_req, res) => {
         { name: 'analytics', base: `${API_PREFIX}/analytics`, description: 'Engagement, participation, readiness, exports' },
         { name: 'uploads', base: `${API_PREFIX}/uploads`, description: 'Validated file upload and delivery' },
         { name: 'passport', base: `${API_PREFIX}/passport`, description: 'Career Passport, readiness, privacy, PDF export' },
+        { name: 'skills', base: `${API_PREFIX}/skills`, description: 'Assessment catalogue, timed attempts, verified skill profile' },
+        { name: 'courses', base: `${API_PREFIX}/courses`, description: 'Course catalogue, enrollment, lesson progress and certificates' },
+        { name: 'roadmaps', base: `${API_PREFIX}/roadmaps`, description: 'Personalised career tracks and step progress' },
+        { name: 'projects', base: `${API_PREFIX}/projects`, description: 'Project briefs, student portfolio submissions and mentor reviews' },
+        { name: 'internships', base: `${API_PREFIX}/internships`, description: 'Curated internships, industry projects, apprenticeships and student applications' },
+        { name: 'resumes', base: `${API_PREFIX}/resumes`, description: 'Passport-prefilled resume builder, scoring suggestions and PDF export' },
       ],
     },
   });

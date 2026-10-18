@@ -4,11 +4,11 @@ import * as React from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import {
-  Award, BadgeCheck, Bell, Building2, CalendarDays, ChevronLeft, LayoutDashboard, Menu,
-  Moon, ScanLine, Settings, Sun, X,
+  Award, BadgeCheck, Bell, BookOpen, Brain, BriefcaseBusiness, Building2, CalendarDays, ChevronLeft,
+  FileText, FolderKanban, LayoutDashboard, Map, Menu, Moon, ScanLine, Settings, Sun, UserRound, X,
 } from 'lucide-react';
 import { useTheme } from 'next-themes';
-import { roleHasPermission, type Permission } from '@campusconnect/shared';
+import { ROLE_HOME, roleHasPermission, type Permission } from '@campusconnect/shared';
 import { useSession } from '@/lib/session';
 import { cn, initials } from '@/lib/utils';
 import { Logo } from '@/components/layout/logo';
@@ -263,7 +263,7 @@ export function buildNav(role: Parameters<typeof roleHasPermission>[0]): NavSect
 
   /* --- Always: the personal surface ------------------------------------- */
   const personal: NavItem[] = [
-    { label: 'Dashboard', href: '/dashboard', icon: <LayoutDashboard className="size-4" />, exact: true },
+    { label: 'Dashboard', href: ROLE_HOME[role], icon: <LayoutDashboard className="size-4" />, exact: true },
     { label: 'Notifications', href: '/dashboard/notifications', icon: <Bell className="size-4" />, badge: 'notifications' },
     { label: 'Settings', href: '/dashboard/settings', icon: <Settings className="size-4" /> },
   ];
@@ -273,6 +273,18 @@ export function buildNav(role: Parameters<typeof roleHasPermission>[0]): NavSect
       { label: 'Certificates', href: '/dashboard/certificates', icon: <Award className="size-4" /> },
     );
   }
+  if (any(['assessment:take'])) {
+    personal.push(
+      { label: 'Skills & Assessments', href: '/dashboard/skills', icon: <Brain className="size-4" />, permissions: ['assessment:take'] },
+      { label: 'Career Roadmap', href: '/dashboard/roadmap', icon: <Map className="size-4" />, permissions: ['assessment:take'] },
+    );
+  }
+  if (any(['course:read'])) personal.push({ label: 'Courses', href: '/learn', icon: <BookOpen className="size-4" />, permissions: ['course:read'] });
+  if (any(['project:submit'])) personal.push({ label: 'Projects', href: '/dashboard/projects', icon: <FolderKanban className="size-4" />, permissions: ['project:submit'] });
+  if (any(['internship:read'])) personal.push({ label: 'Internships', href: '/internships', icon: <BriefcaseBusiness className="size-4" />, permissions: ['internship:read'] });
+  if (any(['internship:apply'])) personal.push({ label: 'My internship applications', href: '/dashboard/internships', icon: <BriefcaseBusiness className="size-4" />, permissions: ['internship:apply'] });
+  if (any(['resume:manage'])) personal.push({ label: 'Resume Builder', href: '/dashboard/resume', icon: <FileText className="size-4" />, permissions: ['resume:manage'] });
+  if (any(['passport:read_own'])) personal.push({ label: 'Career Passport', href: '/dashboard/passport', icon: <UserRound className="size-4" />, permissions: ['passport:read_own'] });
   sections.push({ title: 'You', items: personal });
 
   /* --- Organiser --------------------------------------------------------- */

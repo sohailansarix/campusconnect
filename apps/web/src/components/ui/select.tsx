@@ -17,7 +17,7 @@ export type SelectOption = {
   disabled?: boolean;
 };
 
-export interface SelectProps extends Omit<React.SelectHTMLAttributes<HTMLSelectElement>, 'onChange' | 'value'> {
+export interface SelectProps extends Omit<React.SelectHTMLAttributes<HTMLSelectElement>, 'onChange' | 'value' | 'size'> {
   value: string;
   onChange: (value: string) => void;
   options: SelectOption[];

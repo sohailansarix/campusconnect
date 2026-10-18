@@ -34,9 +34,24 @@ const repositoryRoot = path.resolve(seedDirectory, '../../..');
 dotenv.config({ path: path.join(repositoryRoot, '.env'), override: false });
 dotenv.config({ path: path.join(repositoryRoot, 'apps/api/.env'), override: false });
 
-if (process.env.NODE_ENV === 'production') {
-  console.error('Refusing to run the demo seed in production; it truncates the database and inserts fictional data.');
+const localDatabaseHosts = new Set(['localhost', '127.0.0.1', '::1', 'postgres', 'host.docker.internal']);
+const databaseHost = process.env.DATABASE_URL ? new URL(process.env.DATABASE_URL).hostname : '';
+const allowRemoteDemoSeed = process.env.ALLOW_REMOTE_DEMO_SEED === 'true';
+
+if (
+  process.env.NODE_ENV === 'production' ||
+  (!localDatabaseHosts.has(databaseHost) && !allowRemoteDemoSeed)
+) {
+  console.error(
+    'Refusing to run the demo seed outside a local database; it truncates tables and inserts fictional data.',
+  );
   process.exit(1);
+}
+
+if (!localDatabaseHosts.has(databaseHost)) {
+  console.warn(
+    `⚠️ ALLOW_REMOTE_DEMO_SEED=true: truncating tables and inserting fictional data into ${databaseHost}.`,
+  );
 }
 
 const prisma = new PrismaClient();
@@ -1266,18 +1281,27 @@ async function main(): Promise<void> {
 
         const lessonCount = intBetween(2, 3);
         for (let l = 0; l < lessonCount; l += 1) {
+          const isQuizLesson = m === moduleCount - 1 && l === lessonCount - 1;
           await prisma.lesson.create({
             data: {
               moduleId: module.id,
-              title: `Lesson ${m + 1}.${l + 1}`,
-              contentType: chance(0.6) ? 'VIDEO' : 'TEXT',
-              videoUrl: chance(0.6) ? `https://videos.example.com/${course.slug}/${m + 1}-${l + 1}` : null,
+              title: isQuizLesson ? 'Module checkpoint quiz' : `Lesson ${m + 1}.${l + 1}`,
+              contentType: isQuizLesson ? 'QUIZ' : chance(0.6) ? 'VIDEO' : 'TEXT',
+              videoUrl: !isQuizLesson && chance(0.6) ? `https://videos.example.com/${course.slug}/${m + 1}-${l + 1}` : null,
               content:
                 'In this lesson we work through the concept step by step, then apply it to a sample dataset. ' +
                 'Try each step yourself before moving on — the exercise that follows assumes you have.',
               durationMinutes: intBetween(8, 25),
               order: l,
               isPreview: m === 0 && l === 0,
+              quiz: isQuizLesson ? {
+                passScore: 70,
+                questions: [
+                  { id: 'q1', prompt: `Which choice best demonstrates practical ${definition.skills[0]} use?`, options: [{ id: 'a', text: 'Describe the tool without an example' }, { id: 'b', text: 'Apply it to a real problem and explain the result' }, { id: 'c', text: 'List every feature in the product' }], correctOptionId: 'b', explanation: 'A concrete example and its result show applied skill.' },
+                  { id: 'q2', prompt: 'What should you do before sharing an analysis or project?', options: [{ id: 'a', text: 'Check the result and document assumptions' }, { id: 'b', text: 'Remove all context' }, { id: 'c', text: 'Skip validation to save time' }], correctOptionId: 'a', explanation: 'Validation and clear assumptions make work reproducible and trustworthy.' },
+                  { id: 'q3', prompt: 'A useful portfolio project should include…', options: [{ id: 'a', text: 'Only a screenshot' }, { id: 'b', text: 'A problem, your approach and the outcome' }, { id: 'c', text: 'A list of tools with no explanation' }], correctOptionId: 'b', explanation: 'A reviewer needs context, evidence and the result.' },
+                ],
+              } : undefined,
             },
           });
         }
@@ -1735,7 +1759,7 @@ async function main(): Promise<void> {
     },
   });
 
-  await prisma.assessment.create({
+  const interestAssessment = await prisma.assessment.create({
     data: {
       collegeId: xyz.id,
       name: 'Career Interests Questionnaire',
@@ -1768,6 +1792,54 @@ async function main(): Promise<void> {
         explanation: question.explanation,
         difficulty: index < 3 ? 2 : 3,
         points: 1,
+        sortOrder: index,
+      },
+    });
+  }
+
+  const interestQuestions = [
+    {
+      prompt: 'Which kind of problem would you choose to work on first?',
+      options: [
+        { id: 'a', text: 'Find patterns in data and explain what they mean', interestTracks: ['Data Analyst', 'Business Analyst'] },
+        { id: 'b', text: 'Create a campaign that reaches the right audience', interestTracks: ['Digital Marketer'] },
+        { id: 'c', text: 'Build an interface people can use', interestTracks: ['Frontend Developer'] },
+      ],
+    },
+    {
+      prompt: 'Which task sounds most satisfying?',
+      options: [
+        { id: 'a', text: 'Turn a messy spreadsheet into a clear recommendation', interestTracks: ['Business Analyst', 'Data Analyst'] },
+        { id: 'b', text: 'Improve search and campaign performance', interestTracks: ['Digital Marketer'] },
+        { id: 'c', text: 'Make a web page faster and easier to navigate', interestTracks: ['Frontend Developer'] },
+      ],
+    },
+    {
+      prompt: 'What would you like to show in a portfolio?',
+      options: [
+        { id: 'a', text: 'A dashboard with an insight that changed a decision', interestTracks: ['Data Analyst', 'Business Analyst'] },
+        { id: 'b', text: 'A campaign with measurable audience growth', interestTracks: ['Digital Marketer'] },
+        { id: 'c', text: 'A polished website or interactive product feature', interestTracks: ['Frontend Developer'] },
+      ],
+    },
+    {
+      prompt: 'Which tools would you most like to learn next?',
+      options: [
+        { id: 'a', text: 'SQL, spreadsheets and data visualisation', interestTracks: ['Data Analyst', 'Business Analyst'] },
+        { id: 'b', text: 'SEO, analytics and content tools', interestTracks: ['Digital Marketer'] },
+        { id: 'c', text: 'JavaScript, React and browser tools', interestTracks: ['Frontend Developer'] },
+      ],
+    },
+  ];
+  for (const [index, question] of interestQuestions.entries()) {
+    await prisma.assessmentQuestion.create({
+      data: {
+        assessmentId: interestAssessment.id,
+        prompt: question.prompt,
+        options: question.options,
+        correctOptionId: 'none',
+        explanation: null,
+        points: 0,
         sortOrder: index,
       },
     });

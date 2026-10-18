@@ -38,6 +38,7 @@ type PassportResponse = {
     band: string;
     breakdown: { skills: number; projects: number; internship: number; interview: number };
     suggestions: string[];
+    nextSteps?: ReadinessAction[];
     calculatedAt: string;
   };
   stats: {
@@ -46,7 +47,32 @@ type PassportResponse = {
     projectsCompleted: number;
     internshipsCompleted: number;
   };
-  skills: { id: string; name: string; score: number; verified: boolean }[];
+  skills: { id: string; name: string; score: number; verified: boolean; source: string }[];
+};
+
+type ReadinessAction = {
+  id: string;
+  title: string;
+  description: string;
+  reason: string;
+  impact: number;
+  actionType:
+    | 'ATTEND_EVENT'
+    | 'TAKE_ASSESSMENT'
+    | 'START_COURSE'
+    | 'BUILD_PROJECT'
+    | 'APPLY'
+    | 'BOOK_MOCK'
+    | 'COMPLETE_PROFILE';
+  actionUrl: string;
+  priority: 'HIGH' | 'MEDIUM' | 'LOW';
+};
+
+type RoadmapSummary = {
+  id: string;
+  title: string;
+  track: string;
+  steps: { id: string; title: string; estimatedHours: number | null; progress: { status: string; progressPct: number }[] }[];
 };
 
 type TrendResponse = {
@@ -84,6 +110,7 @@ export default function StudentDashboardPage() {
   });
 
   const trend = useAsync<TrendResponse>(() => get<TrendResponse>('/passport/mine/trend?days=90'));
+  const roadmap = useAsync<RoadmapSummary | null>(() => get<RoadmapSummary | null>('/roadmaps/mine'));
 
   const upcoming = useAsync<Registration[]>(async () => {
     const result = await apiList<Registration>('/events/mine/registrations', {
@@ -148,6 +175,8 @@ export default function StudentDashboardPage() {
           </p>
         </CardContent>
       </Card>
+
+      <RoadmapCard roadmap={roadmap.data} loading={roadmap.loading} />
 
       {/* --- Stats -------------------------------------------------------- */}
       <section aria-labelledby="stats-heading">
@@ -223,11 +252,30 @@ export default function StudentDashboardPage() {
 /* Next step                                                                  */
 /* -------------------------------------------------------------------------- */
 
-/**
- * Picks the highest-impact next action from the readiness suggestions and the
- * student's own calendar. The API already orders suggestions by estimated impact,
- * so this takes the first one and links it to the right destination.
- */
+/** Summarises the active roadmap and its next unfinished step. */
+function RoadmapCard({ roadmap, loading }: { roadmap: RoadmapSummary | null; loading: boolean }) {
+  const completed = roadmap?.steps.filter((step) => step.progress[0]?.status === 'COMPLETED').length ?? 0;
+  const next = roadmap?.steps.find((step) => step.progress[0]?.status !== 'COMPLETED');
+
+  return (
+    <Card>
+      <CardContent className="flex flex-col gap-4 p-5 sm:flex-row sm:items-center">
+        <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-teal-100 text-teal-700 dark:bg-teal-950 dark:text-teal-300">
+          <Target className="size-5" />
+        </span>
+        {loading ? (
+          <div className="flex-1 space-y-2"><div className="shimmer h-4 w-44 rounded bg-muted" /><div className="shimmer h-3 w-72 rounded bg-muted" /></div>
+        ) : roadmap ? (
+          <div className="min-w-0 flex-1"><p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Your active roadmap · {roadmap.track}</p><p className="mt-1 truncate font-semibold">{next?.title ?? `${roadmap.title} complete`}</p><p className="mt-1 text-sm text-muted-foreground">{completed} of {roadmap.steps.length} steps complete{next?.estimatedHours ? ` · about ${next.estimatedHours} hours for this step` : ''}</p></div>
+        ) : (
+          <div className="min-w-0 flex-1"><p className="font-semibold">Build a career roadmap</p><p className="mt-1 text-sm text-muted-foreground">Choose a career track and get a sequence of courses, projects and assessments.</p></div>
+        )}
+        <Button asChild variant={roadmap ? 'outline' : 'default'} size="sm"><Link href="/dashboard/roadmap">{roadmap ? 'Continue roadmap' : 'Create roadmap'} <ArrowRight className="size-4" /></Link></Button>
+      </CardContent>
+    </Card>
+  );
+}
+
 function NextStepSection({
   passport,
   loading,
@@ -241,20 +289,39 @@ function NextStepSection({
 
   if (!passport) return null;
 
+  const recommendation = passport.readiness.nextSteps?.[0];
   const hasAttended = passport.stats.eventsAttended > 0;
-  const suggestion = hasAttended ? 'Complete your student profile' : 'Attend a workshop or club event';
-  const action = hasAttended
-    ? { label: 'Update my profile', href: '/dashboard/settings', description: 'Add your education and career interests to keep your student record current.' }
-    : { label: 'Find an event', href: '/events', description: 'Campus participation is the first evidence in your career journey.' };
+  const fallback = hasAttended
+    ? {
+        title: 'Complete your student profile',
+        label: 'Update my profile',
+        href: '/dashboard/settings',
+        description: 'Add your education and career interests to keep your student record current.',
+      }
+    : {
+        title: 'Attend a workshop or club event',
+        label: 'Find an event',
+        href: '/events',
+        description: 'Campus participation is the first evidence in your career journey.',
+      };
+  const actionLabels: Record<ReadinessAction['actionType'], string> = {
+    ATTEND_EVENT: 'Find an event',
+    TAKE_ASSESSMENT: 'Choose an assessment',
+    START_COURSE: 'Browse courses',
+    BUILD_PROJECT: 'Browse projects',
+    APPLY: 'Browse opportunities',
+    BOOK_MOCK: 'Practise interviews',
+    COMPLETE_PROFILE: 'Complete my profile',
+  };
 
   return (
     <NextStepCard
       stepLabel="Your next step"
-      title={suggestion}
-      description={action.description}
-      reason={`Your current readiness score is ${passport.readiness.score}/100. Each event adds verified campus experience.`}
-      actionLabel={action.label}
-      actionHref={action.href}
+      title={recommendation?.title ?? fallback.title}
+      description={recommendation?.description ?? fallback.description}
+      reason={recommendation?.reason ?? `Your current readiness score is ${passport.readiness.score}/100.`}
+      actionLabel={recommendation ? actionLabels[recommendation.actionType] : fallback.label}
+      actionHref={recommendation?.actionUrl ?? fallback.href}
     />
   );
 }
@@ -605,7 +672,8 @@ function SkillsPanel({
             compact
             icon={<GraduationCap />}
             title="No skills recorded yet"
-            description="Skills assessments and verified skill profiles arrive in Phase 2."
+            description="Take an assessment to establish verified skills and get a tailored learning roadmap."
+            action={<Button asChild size="sm"><Link href="/dashboard/skills">Browse assessments</Link></Button>}
           />
         </CardContent>
       </Card>
@@ -696,7 +764,9 @@ function SkillsPanel({
  * is issued by a different code path. Deriving means the stepper cannot disagree
  * with the evidence below it.
  *
- * TODO(Phase 2): extend with assessment, course, roadmap and project signals.
+ * Phase 2 assessment, course and project evidence is included from the passport.
+ * Roadmap progress is displayed separately; self-reported progress is not treated
+ * as proof that a journey stage is complete.
  */
 function deriveCompletedStages(passport: PassportResponse | null): string[] {
   if (!passport) return [];
@@ -706,10 +776,10 @@ function deriveCompletedStages(passport: PassportResponse | null): string[] {
   if (passport.stats.eventsAttended > 0) {
     completed.push('discover', 'participate');
   }
-  if (passport.stats.certificatesEarned > 0) {
+  if (passport.skills.some((skill) => skill.source === 'ASSESSMENT')) {
     completed.push('assess');
   }
-  if (passport.readiness.breakdown.skills > 0) {
+  if (passport.skills.some((skill) => skill.source === 'COURSE')) {
     completed.push('learn');
   }
   if (passport.stats.projectsCompleted > 0) {

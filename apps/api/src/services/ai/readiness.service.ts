@@ -240,7 +240,7 @@ function buildSuggestions(
       reason: 'The skills pillar is 30% of your readiness score and currently has no data.',
       impact: Math.round(PILLAR_WEIGHTS.skills * 25),
       actionType: 'TAKE_ASSESSMENT',
-      actionUrl: '/dashboard/skills/assessments',
+      actionUrl: '/dashboard/skills',
       priority: 'HIGH',
     });
   } else if (verifiedSkills.length < 3) {
@@ -251,7 +251,7 @@ function buildSuggestions(
       reason: `You have ${input.skills.length} skills but only ${verifiedSkills.length} verified. Verification alone can lift this pillar.`,
       impact: Math.round(PILLAR_WEIGHTS.skills * Math.min(12, (3 - verifiedSkills.length) * 4)),
       actionType: 'TAKE_ASSESSMENT',
-      actionUrl: '/dashboard/skills/assessments',
+      actionUrl: '/dashboard/skills',
       priority: verifiedSkills.length === 0 ? 'HIGH' : 'MEDIUM',
     });
   }
@@ -296,7 +296,7 @@ function buildSuggestions(
         : 'This is the heaviest-weighted pillar with no evidence, and the one placement officers screen on first.',
       impact: Math.round(PILLAR_WEIGHTS.internship * 35),
       actionType: 'APPLY',
-      actionUrl: '/dashboard/internships',
+      actionUrl: '/internships',
       priority: 'HIGH',
     });
   }

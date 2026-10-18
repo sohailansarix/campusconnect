@@ -1,6 +1,6 @@
 # CampusConnect
 
-CampusConnect connects campus participation with career readiness in one evidence based student journey. The Phase 1 pilot includes authentication and role based access, event discovery and registration, QR event passes and attendance, certificates and public verification, college analytics, and in app/email notifications.
+CampusConnect connects campus participation with career readiness in one evidence based student journey. Phase 1 covers authentication and role based access, event discovery and registration, QR event passes and attendance, certificates and public verification, college analytics, and in app/email notifications. Phase 2 adds verified skill assessments, career roadmaps, courses and lesson progress, mentor reviewed projects, internship and industry project applications, a resume builder, and a shareable Career Passport.
 
 ## Architecture
 
@@ -15,12 +15,14 @@ apps/
     prisma/       schema, migrations, seed data
     src/
       modules/    auth, users, colleges, clubs, events, attendance, certificates,
-                  analytics, notifications, uploads, passport
+                  analytics, notifications, uploads, passport, skills, learning,
+                  projects, internships, resumes
       services/   AI, mail, and storage adapters
       middleware/ auth, RBAC, validation, rate limits, errors
   web/
     src/
-      app/        marketing, auth, event, verification, and dashboard routes
+      app/        marketing, auth, event, verification, learning, internship,
+                  passport, resume, and dashboard routes
       components/ layout, journey, and shared UI
       hooks/      API and notification hooks
       lib/        API client, session, and site configuration
@@ -58,6 +60,8 @@ To run one side at a time, use `npm run dev:api` or `npm run dev:web`. To use an
 The API uses Prisma with PostgreSQL, so Supabase works through `DATABASE_URL`; the browser never receives database credentials. Create a Supabase project, open **Connect**, and copy its **Session Pooler** URL (port `5432`) into the root `.env` as `DATABASE_URL`. This API is a persistent Express server, so use a direct connection when the host supports IPv6, or the Session Pooler when it needs IPv4. Do not use the Transaction Pooler URL (port `6543`) with this server. URL-encode reserved characters in the database password and keep the connection string out of source control.
 
 Apply the committed schema with `npm run db:migrate:deploy`. Do not run `npm run db:seed` against a live Supabase database: it truncates the tables and inserts fictional demo records. The full seed is for local development only. See [Supabase's Prisma connection guide](https://supabase.com/docs/guides/database/prisma) for the current connection details.
+
+The migration creates the schema but does not create a real college or publish learning content. Add the actual college, its administrator, and approved course, assessment, project, and internship records before student onboarding; the fictional local seed is intentionally blocked for non-local database hosts.
 
 ## Demo accounts
 

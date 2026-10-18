@@ -119,7 +119,7 @@ function topologicalOrder(skills: { name: string; weight: number }[]): string[] 
 }
 
 export function generateLearningPath(input: LearningPathInput): LearningPathResult {
-  const { targetRole, currentSkills, requiredSkills, availableCourses, weeklyHoursAvailable } = input;
+  const { targetRole, currentSkills, requiredSkills, availableCourses, availableProjects, weeklyHoursAvailable } = input;
 
   const currentByName = new Map(currentSkills.map((s) => [normalise(s.name), s.score]));
 

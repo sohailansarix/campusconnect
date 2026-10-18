@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { PASSPORT_VISIBILITY } from '../constants.js';
 import { listQuerySchema } from './common.js';
+export { usernameParamSchema } from './common.js';
 
 /**
  * The Student Career Passport — read model assembled from many tables.
@@ -14,6 +15,25 @@ export const readinessBreakdownSchema = z.object({
   projects: z.number().min(0).max(100),
   internship: z.number().min(0).max(100),
   interview: z.number().min(0).max(100),
+});
+
+export const readinessActionSchema = z.object({
+  id: z.string(),
+  title: z.string(),
+  description: z.string(),
+  reason: z.string(),
+  impact: z.number(),
+  actionType: z.enum([
+    'ATTEND_EVENT',
+    'TAKE_ASSESSMENT',
+    'START_COURSE',
+    'BUILD_PROJECT',
+    'APPLY',
+    'BOOK_MOCK',
+    'COMPLETE_PROFILE',
+  ]),
+  actionUrl: z.string(),
+  priority: z.enum(['HIGH', 'MEDIUM', 'LOW']),
 });
 
 export const passportSkillSchema = z.object({
@@ -108,6 +128,8 @@ export const passportSchema = z.object({
     breakdown: readinessBreakdownSchema,
     /** Human-readable "what to do next" — rule-based today, AI later. */
     suggestions: z.array(z.string()),
+    /** Actionable recommendations are returned only to the passport owner. */
+    nextSteps: z.array(readinessActionSchema).optional(),
     calculatedAt: z.coerce.date(),
   }),
   stats: z.object({
