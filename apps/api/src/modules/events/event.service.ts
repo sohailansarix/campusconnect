@@ -206,26 +206,22 @@ export async function list(
     ...(filters.registered && caller.id
       ? { registrations: { some: { studentId: caller.id, status: { not: 'CANCELLED' } } } }
       : {}),
-    ...(filters.available ? { capacity: 0 } : {}),
     ...(filters.search
       ? {
-          OR: [
-            { title: { contains: filters.search, mode: 'insensitive' } },
-            { summary: { contains: filters.search, mode: 'insensitive' } },
-            { description: { contains: filters.search, mode: 'insensitive' } },
-            { tags: { has: filters.search } },
+          AND: [
+            {
+              OR: [
+                { title: { contains: filters.search, mode: 'insensitive' } },
+                { summary: { contains: filters.search, mode: 'insensitive' } },
+                { description: { contains: filters.search, mode: 'insensitive' } },
+                { tags: { has: filters.search } },
+              ],
+            },
           ],
         }
       : {}),
   };
 
-  /**
-   * `available=true` needs a computed comparison (registrations < capacity), which
-   * Prisma cannot express in a `where`. It is currently applied after the page is
-   * fetched, which can underfill results and leave pagination totals inaccurate.
-   * TODO(Phase 1 carryover): filter and count available events before pagination
-   * with `registration_count < capacity OR capacity = 0`.
-   */
   const orderBy = buildOrderBy(
     filters.sortBy,
     filters.sortOrder,
@@ -234,20 +230,30 @@ export async function list(
     'asc',
   );
 
-  const [rawItems, total] = await Promise.all([
-    prisma.event.findMany({
+  let paginatedWhere = where;
+  if (filters.available) {
+    // Prisma cannot compare two columns in a `where`. Fetch only the small fields
+    // needed for that comparison, then apply pagination and count to matching ids.
+    const candidates = await prisma.event.findMany({
       where,
+      select: { id: true, capacity: true, registrationCount: true },
+    });
+    const availableIds = candidates
+      .filter((event) => event.capacity === 0 || event.registrationCount < event.capacity)
+      .map((event) => event.id);
+    paginatedWhere = { ...where, id: { in: availableIds } };
+  }
+
+  const [items, total] = await Promise.all([
+    prisma.event.findMany({
+      where: paginatedWhere,
       orderBy,
       skip: pagination.skip,
       take: pagination.take,
       select: EVENT_CARD_SELECT,
     }),
-    prisma.event.count({ where }),
+    prisma.event.count({ where: paginatedWhere }),
   ]);
-
-  const items = filters.available
-    ? rawItems.filter((event) => event.capacity === 0 || event.registrationCount < event.capacity)
-    : rawItems;
 
   // Annotate with the caller's own registration so the card can render
   // "Registered" without a second request per event.
@@ -279,7 +285,16 @@ async function attachViewerRegistration<T extends { id: string }>(events: T[], v
 
 /** Month projection for the calendar view. */
 export async function calendar(
-  params: { month: number; year: number; collegeId?: string; category?: EventCategory[]; clubId?: string },
+  params: {
+    month: number;
+    year: number;
+    collegeId?: string;
+    category?: EventCategory[];
+    mode?: EventMode[];
+    clubId?: string;
+    search?: string;
+    free?: boolean;
+  },
   caller: { collegeId: string | null; isSuperAdmin?: boolean; canReview?: boolean },
 ) {
   // The month is computed in the platform's operating timezone rather than UTC,
@@ -298,7 +313,19 @@ export async function calendar(
         : { collegeId: caller.collegeId }),
       ...(caller.canReview ? {} : { status: { in: PUBLIC_STATUSES } }),
       ...(params.category && params.category.length > 0 ? { category: { in: params.category } } : {}),
+      ...(params.mode && params.mode.length > 0 ? { mode: { in: params.mode } } : {}),
       ...(params.clubId ? { clubId: params.clubId } : {}),
+      ...(params.free !== undefined ? { fee: params.free ? 0 : { gt: 0 } } : {}),
+      ...(params.search
+        ? {
+            OR: [
+              { title: { contains: params.search, mode: 'insensitive' } },
+              { summary: { contains: params.search, mode: 'insensitive' } },
+              { description: { contains: params.search, mode: 'insensitive' } },
+              { tags: { has: params.search } },
+            ],
+          }
+        : {}),
     },
     orderBy: { startAt: 'asc' },
     select: {
@@ -313,16 +340,22 @@ export async function calendar(
       venue: true,
       bannerUrl: true,
       capacity: true,
+      fee: true,
+      currency: true,
       registrationCount: true,
       club: { select: { id: true, name: true } },
     },
     take: 500,
   });
 
-  // Group by day-of-month so the client renders without re-bucketing.
+  const eventsWithRegistration = caller.id
+    ? await attachViewerRegistration(events, caller.id)
+    : events.map((event) => ({ ...event, viewerRegistration: null }));
+
+  // Group by day-of-month in the product's operating timezone (Asia/Kolkata).
   const byDay = new Map<number, typeof events>();
-  for (const event of events) {
-    const day = event.startAt.getUTCDate();
+  for (const event of eventsWithRegistration) {
+    const day = new Date(event.startAt.getTime() + 5.5 * 3600 * 1000).getUTCDate();
     const bucket = byDay.get(day) ?? [];
     bucket.push(event);
     byDay.set(day, bucket);

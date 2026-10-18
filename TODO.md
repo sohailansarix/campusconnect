@@ -10,16 +10,16 @@
 - [x] Fix assessment and internship recommendation links.
 - [x] Remove stale Phase 2 TODO markers and classify remaining cross-phase work below.
 
+### Phase 1 carryovers
+
+- [x] Load full-month public event calendars and preserve the active event filters.
+- [x] Apply available-seat filtering before pagination with accurate result totals.
+
 ### Database setup
 
 - [x] Seed the configured Supabase database with demo data: 2 colleges, 49 students plus staff and employers, 20 events, and related learning, project, and internship records.
 
-## Remaining work
-
-### Phase 1 carryovers
-
-- [ ] Use the full-month calendar endpoint on the public events calendar. [Events page](<./apps/web/src/app/(marketing)/events/page.tsx>)
-- [ ] Apply available-seat filtering before pagination and return accurate totals. [Event service](./apps/api/src/modules/events/event.service.ts)
+## Future work
 
 ## Phase 3
 

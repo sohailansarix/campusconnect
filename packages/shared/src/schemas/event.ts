@@ -184,7 +184,13 @@ export const eventCalendarQuerySchema = z.object({
   year: z.coerce.number().int().min(2020).max(2100),
   collegeId: z.string().cuid().optional(),
   category: csvArray(z.enum(EVENT_CATEGORIES)),
+  mode: csvArray(z.enum(EVENT_MODES)),
   clubId: z.string().cuid().optional(),
+  search: z.string().trim().max(160).optional(),
+  free: z
+    .union([z.boolean(), z.enum(['true', 'false'])])
+    .transform((v) => v === true || v === 'true')
+    .optional(),
 });
 
 /* -------------------------------------------------------------------------- */

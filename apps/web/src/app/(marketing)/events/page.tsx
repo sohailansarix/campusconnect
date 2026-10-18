@@ -3,7 +3,7 @@
 import * as React from 'react';
 import Link from 'next/link';
 import {
-  CalendarDays, Clock, Filter, Grid3x3, LayoutList, MapPin, Search, Users, Video, X,
+  CalendarDays, ChevronLeft, ChevronRight, Clock, Filter, Grid3x3, LayoutList, MapPin, Search, Users, Video, X,
 } from 'lucide-react';
 import { EVENT_CATEGORIES, EVENT_CATEGORY_LABELS, type EventCategory } from '@campusconnect/shared';
 import { Button } from '@/components/ui/button';
@@ -12,7 +12,8 @@ import { Card } from '@/components/ui/card';
 import { SearchInput } from '@/components/ui/input';
 import { Select } from '@/components/ui/select';
 import { CardListSkeleton, EmptyState, ErrorState } from '@/components/ui/empty-state';
-import { useDebounced, useList } from '@/hooks/use-api';
+import { get } from '@/lib/api';
+import { type AsyncState, useAsync, useDebounced, useList } from '@/hooks/use-api';
 import { cn, formatCountdown, formatCurrency, formatEventDate, pluralise } from '@/lib/utils';
 
 /**
@@ -48,6 +49,26 @@ type EventCard = {
   viewerRegistration: { id: string; status: string } | null;
 };
 
+type CalendarEvent = {
+  id: string;
+  slug: string;
+  title: string;
+  category: EventCategory;
+  mode: string;
+  startAt: string;
+  venue: string | null;
+  fee: number;
+  currency: string;
+  viewerRegistration: { id: string; status: string } | null;
+};
+
+type EventCalendar = {
+  month: number;
+  year: number;
+  total: number;
+  days: { day: number; events: CalendarEvent[] }[];
+};
+
 const MODE_LABELS: Record<string, string> = {
   ONLINE: 'Online',
   OFFLINE: 'In person',
@@ -55,13 +76,20 @@ const MODE_LABELS: Record<string, string> = {
 };
 
 export default function EventsPage() {
-  const list = useList<EventCard>('/events', { initialParams: { upcomingOnly: true, sortBy: 'startAt', sortOrder: 'asc' } });
+  const [view, setView] = React.useState<'list' | 'calendar'>('list');
+  const list = useList<EventCard>('/events', {
+    enabled: view === 'list',
+    initialParams: { upcomingOnly: true, sortBy: 'startAt', sortOrder: 'asc' },
+  });
 
   const [search, setSearch] = React.useState('');
   const debouncedSearch = useDebounced(search, 400);
 
-  const [view, setView] = React.useState<'list' | 'calendar'>('list');
   const [filtersOpen, setFiltersOpen] = React.useState(false);
+  const [calendarMonth, setCalendarMonth] = React.useState(() => {
+    const now = new Date();
+    return new Date(now.getFullYear(), now.getMonth(), 1);
+  });
 
   // Push the debounced search into the query. Kept separate from the filter patch
   // so a fast typist does not trigger a request per keystroke.
@@ -75,6 +103,25 @@ export default function EventsPage() {
   const freeOnly = list.params.free === true;
 
   const activeFilterCount = [activeCategory, activeMode, freeOnly].filter(Boolean).length;
+  const calendarYear = calendarMonth.getFullYear();
+  const calendarMonthNumber = calendarMonth.getMonth() + 1;
+  const calendar = useAsync<EventCalendar>(
+    () =>
+      get<EventCalendar>('/events/calendar', {
+        query: {
+          month: calendarMonthNumber,
+          year: calendarYear,
+          search: debouncedSearch || undefined,
+          category: activeCategory || undefined,
+          mode: activeMode || undefined,
+          free: freeOnly ? true : undefined,
+        },
+      }),
+    {
+      enabled: view === 'calendar',
+      deps: [view, calendarMonthNumber, calendarYear, debouncedSearch, activeCategory, activeMode, freeOnly],
+    },
+  );
 
   return (
     <div className="container py-10 lg:py-14">
@@ -216,64 +263,71 @@ export default function EventsPage() {
 
       {/* --- Results ------------------------------------------------------ */}
       <div className="mt-6">
-        {list.loading ? (
-          <CardListSkeleton count={5} />
-        ) : list.error ? (
-          <ErrorState
-            title="Could not load events"
-            description={list.error}
-            requestId={list.requestId}
-            onRetry={() => void list.refetch()}
-          />
-        ) : list.items.length === 0 ? (
-          <EmptyState
-            icon={<CalendarDays />}
-            title={list.hasFilters ? 'No events match those filters' : 'No upcoming events'}
-            description={
-              list.hasFilters
-                ? 'Try widening your search — remove a filter or clear the search term.'
-                : 'New events are added regularly. Check back soon, or follow your clubs to hear first.'
-            }
-            action={
-              list.hasFilters ? (
-                <Button
-                  onClick={() => {
-                    list.resetFilters();
-                    setSearch('');
-                  }}
-                >
-                  Clear filters
-                </Button>
-              ) : (
-                <Button asChild>
-                  <Link href="/clubs">Browse clubs</Link>
-                </Button>
-              )
-            }
-          />
-        ) : view === 'list' ? (
-          <>
-            <p className="mb-4 text-sm text-muted-foreground">
-              {list.meta?.total ?? list.items.length} {pluralise(list.meta?.total ?? list.items.length, 'event')}
-            </p>
-
-            <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              {list.items.map((event) => (
-                <li key={event.id}>
-                  <EventListCard event={event} />
-                </li>
-              ))}
-            </ul>
-
-            <Pagination
-              meta={list.meta}
-              onNext={list.nextPage}
-              onPrevious={list.previousPage}
-              loading={list.loading}
+        {view === 'list' ? (
+          list.loading ? (
+            <CardListSkeleton count={5} />
+          ) : list.error ? (
+            <ErrorState
+              title="Could not load events"
+              description={list.error}
+              requestId={list.requestId}
+              onRetry={() => void list.refetch()}
             />
-          </>
+          ) : list.items.length === 0 ? (
+            <EmptyState
+              icon={<CalendarDays />}
+              title={list.hasFilters ? 'No events match those filters' : 'No upcoming events'}
+              description={
+                list.hasFilters
+                  ? 'Try widening your search — remove a filter or clear the search term.'
+                  : 'New events are added regularly. Check back soon, or follow your clubs to hear first.'
+              }
+              action={
+                list.hasFilters ? (
+                  <Button
+                    onClick={() => {
+                      list.resetFilters();
+                      setSearch('');
+                    }}
+                  >
+                    Clear filters
+                  </Button>
+                ) : (
+                  <Button asChild>
+                    <Link href="/clubs">Browse clubs</Link>
+                  </Button>
+                )
+              }
+            />
+          ) : (
+            <>
+              <p className="mb-4 text-sm text-muted-foreground">
+                {list.meta?.total ?? list.items.length} {pluralise(list.meta?.total ?? list.items.length, 'event')}
+              </p>
+
+              <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                {list.items.map((event) => (
+                  <li key={event.id}>
+                    <EventListCard event={event} />
+                  </li>
+                ))}
+              </ul>
+
+              <Pagination
+                meta={list.meta}
+                onNext={list.nextPage}
+                onPrevious={list.previousPage}
+                loading={list.loading}
+              />
+            </>
+          )
         ) : (
-          <CalendarView events={list.items} />
+          <CalendarView
+            state={calendar}
+            month={calendarMonth}
+            onPrevious={() => setCalendarMonth((current) => new Date(current.getFullYear(), current.getMonth() - 1, 1))}
+            onNext={() => setCalendarMonth((current) => new Date(current.getFullYear(), current.getMonth() + 1, 1))}
+          />
         )}
       </div>
     </div>
@@ -396,95 +450,128 @@ function EventListCard({ event }: { event: EventCard }) {
 /* Calendar view                                                              */
 /* -------------------------------------------------------------------------- */
 
-/**
- * Groups the current page of events by day.
- *
- * Honest limitation: this groups what the list query returned rather than fetching
- * a whole month, so a month with more events than `pageSize` shows a partial view.
- * The API's `/events/calendar` endpoint exists for the full-month case and is used
- * by the dashboard's month widget. TODO(Phase 1 carryover): use it for this view.
- */
-function CalendarView({ events }: { events: EventCard[] }) {
-  const grouped = React.useMemo(() => {
-    const map = new Map<string, EventCard[]>();
-
-    for (const event of events) {
-      const key = new Date(event.startAt).toDateString();
-      const bucket = map.get(key) ?? [];
-      bucket.push(event);
-      map.set(key, bucket);
-    }
-
-    return [...map.entries()].sort((a, b) => new Date(a[0]).getTime() - new Date(b[0]).getTime());
-  }, [events]);
-
-  if (grouped.length === 0) {
-    return (
-      <EmptyState
-        icon={<CalendarDays />}
-        title="Nothing scheduled"
-        description="No events match your current filters."
-      />
-    );
-  }
+/** Renders the API's complete month projection, independent of list pagination. */
+function CalendarView({
+  state,
+  month,
+  onPrevious,
+  onNext,
+}: {
+  state: AsyncState<EventCalendar>;
+  month: Date;
+  onPrevious: () => void;
+  onNext: () => void;
+}) {
+  const monthLabel = month.toLocaleDateString('en-IN', {
+    month: 'long',
+    year: 'numeric',
+    timeZone: 'Asia/Kolkata',
+  });
 
   return (
-    <div className="space-y-6">
-      {grouped.map(([day, dayEvents]) => (
-        <section key={day}>
-          <h2 className="sticky top-16 z-10 -mx-1 bg-background/95 px-1 py-2 text-sm font-semibold backdrop-blur-sm">
-            {new Date(day).toLocaleDateString('en-IN', {
-              weekday: 'long',
-              day: 'numeric',
-              month: 'long',
-            })}
-            <span className="ml-2 font-normal text-muted-foreground">
-              {dayEvents.length} {pluralise(dayEvents.length, 'event')}
-            </span>
-          </h2>
+    <div className="space-y-5">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h2 className="text-lg font-semibold">{monthLabel}</h2>
+          {state.data && (
+            <p className="mt-1 text-sm text-muted-foreground">
+              {state.data.total} {pluralise(state.data.total, 'event')}
+            </p>
+          )}
+        </div>
+        <div className="flex items-center gap-2">
+          <Button size="sm" variant="outline" onClick={onPrevious} aria-label="Previous month">
+            <ChevronLeft className="size-4" />
+            Previous
+          </Button>
+          <Button size="sm" variant="outline" onClick={onNext} aria-label="Next month">
+            Next
+            <ChevronRight className="size-4" />
+          </Button>
+        </div>
+      </div>
 
-          <ul className="mt-3 space-y-3">
-            {dayEvents
-              .sort((a, b) => new Date(a.startAt).getTime() - new Date(b.startAt).getTime())
-              .map((event) => (
-                <li key={event.id}>
-                  <Link
-                    href={`/events/${event.slug}`}
-                    className="flex items-start gap-4 rounded-xl border border-border bg-card p-4 shadow-soft transition-colors hover:bg-accent/40"
-                  >
-                    <div className="w-16 shrink-0 text-center">
-                      <p className="text-sm font-semibold tabular-nums">
-                        {new Date(event.startAt).toLocaleTimeString('en-IN', {
-                          hour: 'numeric',
-                          minute: '2-digit',
-                        })}
-                      </p>
-                    </div>
+      {state.loading ? (
+        <CardListSkeleton count={4} />
+      ) : state.error ? (
+        <ErrorState
+          title="Could not load this month’s events"
+          description={state.error}
+          requestId={state.requestId}
+          onRetry={() => void state.refetch()}
+        />
+      ) : !state.data || state.data.total === 0 ? (
+        <EmptyState
+          icon={<CalendarDays />}
+          title="Nothing scheduled"
+          description="No events match your current filters this month."
+        />
+      ) : (
+        <div className="space-y-6">
+          {state.data.days.map((day) => {
+            const dayDate = new Date(Date.UTC(state.data!.year, state.data!.month - 1, day.day, 12));
+            const dayEvents = [...day.events].sort(
+              (a, b) => new Date(a.startAt).getTime() - new Date(b.startAt).getTime(),
+            );
 
-                    <div className="min-w-0 flex-1 border-l border-border pl-4">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <h3 className="truncate text-sm font-medium">{event.title}</h3>
-                        <Badge variant="neutral" size="sm">
-                          {EVENT_CATEGORY_LABELS[event.category]}
-                        </Badge>
-                        {event.viewerRegistration && (
-                          <StatusBadge status={event.viewerRegistration.status} size="sm" />
-                        )}
-                      </div>
+            return (
+              <section key={day.day}>
+                <h3 className="sticky top-16 z-10 -mx-1 bg-background/95 px-1 py-2 text-sm font-semibold backdrop-blur-sm">
+                  {dayDate.toLocaleDateString('en-IN', {
+                    weekday: 'long',
+                    day: 'numeric',
+                    month: 'long',
+                    timeZone: 'Asia/Kolkata',
+                  })}
+                  <span className="ml-2 font-normal text-muted-foreground">
+                    {day.events.length} {pluralise(day.events.length, 'event')}
+                  </span>
+                </h3>
 
-                      <p className="mt-1 truncate text-xs text-muted-foreground">
-                        {MODE_LABELS[event.mode] ?? event.mode}
-                        {event.venue ? ` · ${event.venue}` : ''}
-                        {' · '}
-                        {formatCurrency(event.fee, event.currency)}
-                      </p>
-                    </div>
-                  </Link>
-                </li>
-              ))}
-          </ul>
-        </section>
-      ))}
+                <ul className="mt-3 space-y-3">
+                  {dayEvents.map((event) => (
+                    <li key={event.id}>
+                      <Link
+                        href={`/events/${event.slug}`}
+                        className="flex items-start gap-4 rounded-xl border border-border bg-card p-4 shadow-soft transition-colors hover:bg-accent/40"
+                      >
+                        <div className="w-16 shrink-0 text-center">
+                          <p className="text-sm font-semibold tabular-nums">
+                            {new Date(event.startAt).toLocaleTimeString('en-IN', {
+                              hour: 'numeric',
+                              minute: '2-digit',
+                              timeZone: 'Asia/Kolkata',
+                            })}
+                          </p>
+                        </div>
+
+                        <div className="min-w-0 flex-1 border-l border-border pl-4">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <h4 className="truncate text-sm font-medium">{event.title}</h4>
+                            <Badge variant="neutral" size="sm">
+                              {EVENT_CATEGORY_LABELS[event.category]}
+                            </Badge>
+                            {event.viewerRegistration && (
+                              <StatusBadge status={event.viewerRegistration.status} size="sm" />
+                            )}
+                          </div>
+
+                          <p className="mt-1 truncate text-xs text-muted-foreground">
+                            {MODE_LABELS[event.mode] ?? event.mode}
+                            {event.venue ? ` · ${event.venue}` : ''}
+                            {' · '}
+                            {formatCurrency(event.fee, event.currency)}
+                          </p>
+                        </div>
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+              </section>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }
