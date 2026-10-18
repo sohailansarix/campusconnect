@@ -3,6 +3,9 @@
   "version": "1.0.0",
   "private": true,
   "type": "module",
+  "engines": {
+    "node": "22.x"
+  },
   "description": "CampusConnect REST API — Express + TypeScript + Prisma",
   "main": "dist/server.js",
   "scripts": {
