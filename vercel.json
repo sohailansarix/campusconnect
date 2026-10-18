@@ -4,7 +4,7 @@
     "api": {
       "root": "apps/api",
       "framework": "express",
-      "entrypoint": "dist/vercel.js",
+      "entrypoint": "src/vercel.ts",
       "buildCommand": "cd ../.. && npm run build --workspace=@campusconnect/shared && npm run build --workspace=@campusconnect/api"
     },
     "web": {
