@@ -5,7 +5,7 @@
       "root": "apps/api",
       "framework": "express",
       "entrypoint": "src/index.ts",
-      "buildCommand": "cd ../.. && npm run build --workspace=@campusconnect/shared"
+      "buildCommand": "cd ../.. && npm run build --workspace=@campusconnect/shared && npm run db:generate --workspace=@campusconnect/api"
     },
     "web": {
       "root": "apps/web",
