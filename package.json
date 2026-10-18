@@ -23,7 +23,8 @@
     "setup": "npm install && npm run build --workspace=@campusconnect/shared && npm run db:up && sleep 4 && npm run db:migrate && npm run db:seed",
     "test": "npm run test --workspace=@campusconnect/api",
     "lint": "npm run lint --workspace=@campusconnect/web",
-    "typecheck": "npm run typecheck --workspace=@campusconnect/shared && npm run typecheck --workspace=@campusconnect/api && npm run typecheck --workspace=@campusconnect/web"
+    "typecheck": "npm run typecheck --workspace=@campusconnect/shared && npm run typecheck --workspace=@campusconnect/api && npm run typecheck --workspace=@campusconnect/web",
+    "postinstall": "npm run build --workspace=@campusconnect/shared"
   },
   "engines": {
     "node": ">=20.0.0"
