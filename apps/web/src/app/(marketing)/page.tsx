@@ -61,9 +61,9 @@ function Hero() {
       <div className="pointer-events-none absolute inset-x-0 top-0 h-[420px] bg-hero-glow" aria-hidden="true" />
 
       <div className="container relative z-10 py-16 lg:py-24">
-        <div className="grid items-center gap-12 lg:grid-cols-[1.05fr_1fr] lg:gap-16">
+        <div className="grid min-w-0 grid-cols-1 items-center gap-8 lg:grid-cols-[1.05fr_1fr] lg:gap-16">
           {/* Copy */}
-          <div className="max-w-2xl">
+          <div className="min-w-0 max-w-2xl">
             <Badge variant="default" className="mb-5" size="lg">
               <Sparkles className="size-3.5" aria-hidden="true" />
               One platform, from first year to first job
@@ -127,13 +127,13 @@ function Hero() {
  */
 function HeroCollage() {
   return (
-    <div className="relative mx-auto w-full max-w-lg lg:max-w-none" aria-hidden="true">
+    <div className="relative mx-auto w-full min-w-0 max-w-lg lg:max-w-none" aria-hidden="true">
       {/* Backdrop */}
       <div className="absolute inset-0 -z-10 rounded-3xl bg-gradient-to-br from-layer-campus-100/60 via-layer-skill-100/40 to-layer-career-100/60 blur-2xl dark:from-layer-campus-950/40 dark:via-layer-skill-950/30 dark:to-layer-career-950/40" />
 
-      <div className="grid gap-4 sm:grid-cols-2">
+      <div className="grid min-w-0 gap-4 sm:grid-cols-2">
         {/* Attending an event */}
-        <Card className="shadow-card">
+        <Card className="min-w-0 shadow-card">
           <div className="flex items-start gap-3">
             <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-layer-campus-100 text-layer-campus-700 dark:bg-layer-campus-950 dark:text-layer-campus-400">
               <CalendarDays className="size-4" />
@@ -154,7 +154,7 @@ function HeroCollage() {
         </Card>
 
         {/* Learning */}
-        <Card className="shadow-card sm:mt-8">
+        <Card className="min-w-0 shadow-card sm:mt-8">
           <div className="flex items-start gap-3">
             <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-layer-skill-100 text-layer-skill-700 dark:bg-layer-skill-950 dark:text-layer-skill-400">
               <TrendingUp className="size-4" />
@@ -187,7 +187,7 @@ function HeroCollage() {
         </Card>
 
         {/* Certificate */}
-        <Card className="shadow-card">
+        <Card className="min-w-0 shadow-card">
           <div className="flex items-start gap-3">
             <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-400">
               <BadgeCheck className="size-4" />
@@ -205,7 +205,7 @@ function HeroCollage() {
         </Card>
 
         {/* Internship */}
-        <Card className="shadow-card sm:mt-8">
+        <Card className="min-w-0 shadow-card sm:mt-8">
           <div className="flex items-start gap-3">
             <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-layer-skill-100 text-layer-skill-700 dark:bg-layer-skill-950 dark:text-layer-skill-400">
               <Briefcase className="size-4" />
@@ -224,7 +224,7 @@ function HeroCollage() {
         </Card>
 
         {/* Career */}
-        <Card className="shadow-card sm:col-span-2">
+        <Card className="min-w-0 shadow-card sm:col-span-2">
           <div className="flex items-center gap-3">
             <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-layer-career-100 text-layer-career-700 dark:bg-layer-career-950 dark:text-layer-career-400">
               <Target className="size-4" />
