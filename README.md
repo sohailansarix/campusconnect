@@ -53,6 +53,8 @@ npm run dev
 
 The API loads the root `.env`; the Next.js config loads the same file for its `NEXT_PUBLIC_*` settings. Keep the sample values for local development only. Replace the JWT and QR secrets, database credentials, SMTP/S3 settings, and public URLs before deploying.
 
+For Vercel, configure the service-specific values from [.env.vercel.example](./.env.vercel.example) in the Vercel project settings. Leave `NEXT_PUBLIC_API_URL` unset so the browser uses the `/api/v1` rewrite; `API_SERVICE_URL` is supplied by the service binding in `vercel.json`. Replace the domain, database, S3, SMTP, and secret placeholders before deploying.
+
 The API is available at `http://localhost:4000/api/v1`; Swagger UI is at `http://localhost:4000/api/docs` during development. The web app is at `http://localhost:3000`.
 
 To run one side at a time, use `npm run dev:api` or `npm run dev:web`. To use an existing PostgreSQL database instead of Compose, set `DATABASE_URL` in `.env`, then run `npm run db:migrate` and `npm run db:seed`.

@@ -148,7 +148,8 @@
 }
 
 @layer utilities {
-  /* The grid backdrop behind hero sections, faded at the edges. */
+  /* Decorative grid layer, faded at the edges. Apply it to a background-only
+     element: mask-image also masks an element's text and children. */
   .bg-grid-fade {
     background-image:
       linear-gradient(to right, hsl(var(--border) / 0.5) 1px, transparent 1px),

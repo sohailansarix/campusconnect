@@ -54,11 +54,13 @@ export default function HomePage() {
 
 function Hero() {
   return (
-    <section className="relative overflow-hidden bg-grid-fade">
+    <section className="relative overflow-hidden">
+      {/* Keep the edge-faded grid on its own layer so its mask never fades the text. */}
+      <div className="pointer-events-none absolute inset-0 bg-grid-fade" aria-hidden="true" />
       {/* Ambient glow behind the headline. */}
       <div className="pointer-events-none absolute inset-x-0 top-0 h-[420px] bg-hero-glow" aria-hidden="true" />
 
-      <div className="container relative py-16 lg:py-24">
+      <div className="container relative z-10 py-16 lg:py-24">
         <div className="grid items-center gap-12 lg:grid-cols-[1.05fr_1fr] lg:gap-16">
           {/* Copy */}
           <div className="max-w-2xl">
